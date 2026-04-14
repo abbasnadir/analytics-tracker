@@ -1,0 +1,22 @@
+{
+  "name": "metricflow",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "services/backend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace @metricflow/backend",
+    "dev:dashboard": "npm run dev --workspace @metricflow/dashboard",
+    "build:sdk": "npm run build --workspace @metricflow/sdk",
+    "build:backend": "npm run build --workspace @metricflow/backend",
+    "build:dashboard": "npm run build --workspace @metricflow/dashboard",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.11.0",
+    "npm": ">=10.0.0"
+  }
+}

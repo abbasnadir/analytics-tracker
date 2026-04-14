@@ -1,0 +1,1 @@
+display all the records of the employee database from employee table using html css and php

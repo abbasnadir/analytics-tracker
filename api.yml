@@ -1,0 +1,292 @@
+openapi: 3.1.0
+info:
+  title: MetricFlow Backend API
+  version: 0.1.0
+  description: |
+    Single backend contract used by SDK, analyzer, and dashboard.
+
+    Rules:
+    - SDK sends raw events to backend
+    - analyzer pulls raw events from backend and pushes processed summaries back
+    - dashboard pulls ready metrics from backend
+servers:
+  - url: http://localhost:4000
+tags:
+  - name: health
+  - name: sdk
+  - name: analyzer
+  - name: dashboard
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Backend is alive
+  /api/v1/events:
+    post:
+      tags: [sdk]
+      summary: SDK sends raw browser event
+      parameters:
+        - in: header
+          name: x-api-key
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventPayload"
+      responses:
+        "202":
+          description: Event accepted
+        "400":
+          description: Bad payload
+        "401":
+          description: Bad API key
+  /api/v1/analyzer/events:
+    get:
+      tags: [analyzer]
+      summary: Analyzer pulls raw events from backend
+      parameters:
+        - in: header
+          name: x-api-key
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: apiKey
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: start
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: end
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Raw event batch
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenantId:
+                    type: string
+                  count:
+                    type: integer
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AnalyzerEvent"
+        "400":
+          description: Bad query
+        "401":
+          description: Bad API key
+  /api/v1/analyzer/summaries:
+    post:
+      tags: [analyzer]
+      summary: Analyzer sends processed metrics back to backend
+      parameters:
+        - in: header
+          name: x-api-key
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetricSummary"
+      responses:
+        "202":
+          description: Summary accepted
+        "400":
+          description: Bad payload
+        "401":
+          description: Bad API key
+  /api/v1/metrics/overview:
+    get:
+      tags: [dashboard]
+      summary: Dashboard asks for ready metrics
+      parameters:
+        - in: header
+          name: x-api-key
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: apiKey
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Metric overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricOverview"
+        "401":
+          description: Bad API key
+components:
+  schemas:
+    EventPayload:
+      type: object
+      required:
+        - apiKey
+        - sessionId
+        - eventName
+        - timestamp
+        - url
+        - userAgent
+        - properties
+      properties:
+        apiKey:
+          type: string
+        sessionId:
+          type: string
+        eventName:
+          type: string
+          examples: [page_view, click, custom_event]
+        timestamp:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+        userAgent:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+        element:
+          type: object
+          properties:
+            tagName:
+              type: string
+            id:
+              type: string
+            classes:
+              type: array
+              items:
+                type: string
+            text:
+              type: string
+    AnalyzerEvent:
+      type: object
+      required:
+        - sessionId
+        - eventName
+        - timestamp
+        - url
+        - userAgent
+        - properties
+      properties:
+        sessionId:
+          type: string
+        eventName:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+        userAgent:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+        element:
+          type: object
+          properties:
+            tagName:
+              type: string
+            id:
+              type: string
+            classes:
+              type: array
+              items:
+                type: string
+            text:
+              type: string
+    RankedMetric:
+      type: object
+      required: [key, count]
+      properties:
+        key:
+          type: string
+        count:
+          type: integer
+    MetricSummary:
+      type: object
+      required:
+        - rangeStart
+        - rangeEnd
+        - totalPageViews
+        - totalClicks
+        - topPages
+        - topElements
+        - generatedAt
+      properties:
+        rangeStart:
+          type: string
+          format: date-time
+        rangeEnd:
+          type: string
+          format: date-time
+        totalPageViews:
+          type: integer
+        totalClicks:
+          type: integer
+        topPages:
+          type: array
+          items:
+            $ref: "#/components/schemas/RankedMetric"
+        topElements:
+          type: array
+          items:
+            $ref: "#/components/schemas/RankedMetric"
+        generatedAt:
+          type: string
+          format: date-time
+    MetricOverview:
+      type: object
+      required:
+        - tenantId
+        - totalPageViews
+        - totalClicks
+        - topPages
+        - topElements
+        - generatedAt
+      properties:
+        tenantId:
+          type: string
+        totalPageViews:
+          type: integer
+        totalClicks:
+          type: integer
+        topPages:
+          type: array
+          items:
+            $ref: "#/components/schemas/RankedMetric"
+        topElements:
+          type: array
+          items:
+            $ref: "#/components/schemas/RankedMetric"
+        generatedAt:
+          type: string
+          format: date-time
