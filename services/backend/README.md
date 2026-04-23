@@ -42,10 +42,27 @@ Full contract: [api.yml](../../api.yml)
 
 ## Run
 
+Unified team flow (from project root):
+
 ```bash
-cp .env.example .env
 npm install
-npm run dev
+cp .env.unified.example .env.unified
+npm run env:sync
+cd services/analyzer
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+cd ../..
+npm run dev:all
+```
+
+Backend-only flow:
+
+```bash
+npm install
+cp .env.unified.example .env.unified
+npm run env:sync
+npm run dev:backend
 ```
 
 ## Error Handling

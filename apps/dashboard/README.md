@@ -17,15 +17,32 @@ This is analytics UI.
 ## Route Used
 
 - `GET /api/v1/metrics/overview`
+- `GET /api/v1/metrics/timeseries`
+- `GET /api/v1/metrics/top-pages`
+- `GET /api/v1/metrics/top-elements`
+- `GET /api/v1/metrics/sessions`
+- `GET /api/v1/metrics/health/ping`
 
 Full contract: [api.yml](../../api.yml)
 
-## Run
+## Install and Run
+
+Unified team flow (from project root):
 
 ```bash
-cp .env.example .env.local
 npm install
-npm run dev
+cp .env.unified.example .env.unified
+npm run env:sync
+npm run dev:all
+```
+
+Dashboard-only flow:
+
+```bash
+npm install
+cp .env.unified.example .env.unified
+npm run env:sync
+npm run dev:dashboard
 ```
 
 ## Safe Files To Touch

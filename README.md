@@ -107,6 +107,16 @@ For noob setup, easiest DB option is MongoDB Atlas free cluster.
 
 ## Super Simple Setup
 
+Fast path for teammates:
+
+```bash
+npm install
+cp .env.unified.example .env.unified
+npm run env:sync
+cd services/analyzer && python3 -m venv .venv && source .venv/bin/activate && pip install -e .[dev] && cd ../..
+npm run dev:all
+```
+
 ### 1. Clone project
 
 ```bash
@@ -182,6 +192,12 @@ npm run dev:all
 ```
 
 This command reads `.env.unified` and starts backend, dashboard, and analyzer together.
+
+If you change env values, re-run:
+
+```bash
+npm run env:sync
+```
 
 If you prefer separate terminals, keep using the manual commands below.
 
