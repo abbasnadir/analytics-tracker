@@ -1,16 +1,30 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
-import "./globals.css";
+import React from "react";
 
+import "./globals.css";
+import { UserProvider } from "@/contexts/UserContext";
+
+/**
+ * Dashboard Layout
+ * ----------------
+ * Shared shell for all /dashboard/* routes.
+ * Sidebar + Navbar are pure layout components — no data deps here.
+ */
 export const metadata: Metadata = {
   title: "MetricFlow Dashboard",
-  description: "Analytics dashboard for MetricFlow"
+  description: "Live metrics dashboard",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <UserProvider>{children}</UserProvider>
+      </body>
     </html>
   );
 }
