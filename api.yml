@@ -1,14 +1,15 @@
 openapi: 3.1.0
 info:
   title: MetricFlow Backend API
-  version: 0.1.0
+  version: 1.0.0
   description: |
-    Single backend contract used by SDK, analyzer, and dashboard.
+    Unified backend contract used by SDK, analyzer, and dashboard.
 
     Rules:
     - SDK sends raw events to backend
     - analyzer pulls raw events from backend and pushes processed summaries back
     - dashboard pulls ready metrics from backend
+    - only backend accesses MongoDB directly
 servers:
   - url: http://localhost:4000
 tags:
@@ -16,24 +17,27 @@ tags:
   - name: sdk
   - name: analyzer
   - name: dashboard
+security:
+  - ApiKeyAuth: []
 paths:
   /health:
     get:
+      security: []
       tags: [health]
       summary: Health check
       responses:
         "200":
           description: Backend is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
   /api/v1/events:
     post:
       tags: [sdk]
-      summary: SDK sends raw browser event
+      summary: SDK sends raw browser event (single event mode)
       parameters:
-        - in: header
-          name: x-api-key
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/ApiKeyHeader"
       requestBody:
         required: true
         content:
@@ -43,95 +47,137 @@ paths:
       responses:
         "202":
           description: Event accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventAcceptedResponse"
         "400":
-          description: Bad payload
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: Bad API key
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/events/batch:
+    post:
+      tags: [sdk]
+      summary: SDK sends event batch
+      description: Planned endpoint for queued telemetry flush from SDK.
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventBatchRequest"
+      responses:
+        "202":
+          description: Event batch accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/v1/analyzer/events:
     get:
       tags: [analyzer]
       summary: Analyzer pulls raw events from backend
       parameters:
-        - in: header
-          name: x-api-key
-          required: false
-          schema:
-            type: string
-        - in: query
-          name: apiKey
-          required: false
-          schema:
-            type: string
-        - in: query
-          name: start
-          required: true
-          schema:
-            type: string
-            format: date-time
-        - in: query
-          name: end
-          required: true
-          schema:
-            type: string
-            format: date-time
+        - $ref: "#/components/parameters/ApiKeyHeader"
+        - $ref: "#/components/parameters/ApiKeyQueryDeprecated"
+        - $ref: "#/components/parameters/StartDateTime"
+        - $ref: "#/components/parameters/EndDateTime"
       responses:
         "200":
           description: Raw event batch
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  tenantId:
-                    type: string
-                  count:
-                    type: integer
-                  events:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/AnalyzerEvent"
+                $ref: "#/components/schemas/AnalyzerEventsResponse"
         "400":
-          description: Bad query
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: Bad API key
+          $ref: "#/components/responses/Unauthorized"
   /api/v1/analyzer/summaries:
     post:
       tags: [analyzer]
       summary: Analyzer sends processed metrics back to backend
       parameters:
-        - in: header
-          name: x-api-key
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/ApiKeyHeader"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/MetricSummary"
+              $ref: "#/components/schemas/MetricSummaryPayload"
       responses:
         "202":
           description: Summary accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummaryAcceptedResponse"
         "400":
-          description: Bad payload
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: Bad API key
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/analyzer/checkpoint:
+    get:
+      tags: [analyzer]
+      summary: Analyzer reads current processing checkpoint
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyHeader"
+      responses:
+        "200":
+          description: Analyzer checkpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyzerCheckpoint"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [analyzer]
+      summary: Analyzer updates processing checkpoint
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzerCheckpointUpdate"
+      responses:
+        "200":
+          description: Analyzer checkpoint updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyzerCheckpoint"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/v1/metrics/overview:
     get:
       tags: [dashboard]
       summary: Dashboard asks for ready metrics
       parameters:
-        - in: header
-          name: x-api-key
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/ApiKeyHeader"
+        - $ref: "#/components/parameters/ApiKeyQueryDeprecated"
         - in: query
-          name: apiKey
+          name: start
           required: false
           schema:
             type: string
+            format: date-time
+        - in: query
+          name: end
+          required: false
+          schema:
+            type: string
+            format: date-time
       responses:
         "200":
           description: Metric overview
@@ -140,13 +186,339 @@ paths:
               schema:
                 $ref: "#/components/schemas/MetricOverview"
         "401":
-          description: Bad API key
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/metrics/timeseries:
+    get:
+      tags: [dashboard]
+      summary: Dashboard asks for timeseries metrics
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyHeader"
+        - $ref: "#/components/parameters/StartDateTime"
+        - $ref: "#/components/parameters/EndDateTime"
+        - $ref: "#/components/parameters/Interval"
+        - $ref: "#/components/parameters/EventName"
+      responses:
+        "200":
+          description: Timeseries metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeseriesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/metrics/top-pages:
+    get:
+      tags: [dashboard]
+      summary: Dashboard asks for top page metrics
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyHeader"
+        - $ref: "#/components/parameters/StartDateTime"
+        - $ref: "#/components/parameters/EndDateTime"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Ranked page metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RankedMetricsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/metrics/top-elements:
+    get:
+      tags: [dashboard]
+      summary: Dashboard asks for top clicked element metrics
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyHeader"
+        - $ref: "#/components/parameters/StartDateTime"
+        - $ref: "#/components/parameters/EndDateTime"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Ranked element metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RankedMetricsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/metrics/sessions:
+    get:
+      tags: [dashboard]
+      summary: Dashboard asks for session analytics
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyHeader"
+        - $ref: "#/components/parameters/StartDateTime"
+        - $ref: "#/components/parameters/EndDateTime"
+      responses:
+        "200":
+          description: Session metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionMetricsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/metrics/health/ping:
+    get:
+      tags: [health, dashboard]
+      summary: Ping endpoint including backend and MongoDB health
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyHeader"
+      responses:
+        "200":
+          description: Ping status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  parameters:
+    ApiKeyHeader:
+      in: header
+      name: x-api-key
+      required: false
+      schema:
+        type: string
+      description: API key for tenant authorization.
+    ApiKeyQueryDeprecated:
+      in: query
+      name: apiKey
+      required: false
+      deprecated: true
+      schema:
+        type: string
+      description: Deprecated fallback for older clients. Prefer x-api-key header.
+    StartDateTime:
+      in: query
+      name: start
+      required: true
+      schema:
+        type: string
+        format: date-time
+    EndDateTime:
+      in: query
+      name: end
+      required: true
+      schema:
+        type: string
+        format: date-time
+    Interval:
+      in: query
+      name: interval
+      required: true
+      schema:
+        type: string
+        enum: [hour, day]
+    EventName:
+      in: query
+      name: eventName
+      required: false
+      schema:
+        type: string
+    Limit:
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 5
+  responses:
+    BadRequest:
+      description: Invalid payload or query
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: Invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
   schemas:
+    HealthResponse:
+      type: object
+      required: [status, service, timestamp]
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: metricflow-backend
+        timestamp:
+          type: string
+          format: date-time
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        issues:
+          type: object
+          additionalProperties: true
+        details:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+          format: uuid
+        serverTime:
+          type: string
+          format: date-time
+    ElementDetails:
+      type: object
+      properties:
+        tagName:
+          type: string
+        id:
+          type: string
+        classes:
+          type: array
+          items:
+            type: string
+        text:
+          type: string
+        x:
+          type: number
+        y:
+          type: number
     EventPayload:
       type: object
       required:
+        - schemaVersion
         - apiKey
+        - sessionId
+        - eventId
+        - eventName
+        - timestamp
+        - url
+        - userAgent
+        - properties
+      properties:
+        schemaVersion:
+          type: string
+          default: "1.0"
+        apiKey:
+          type: string
+        scriptId:
+          type: string
+        sessionId:
+          type: string
+        eventId:
+          type: string
+          format: uuid
+        eventName:
+          type: string
+          examples: [page_view, click, custom_event]
+        timestamp:
+          type: string
+          format: date-time
+        receivedAt:
+          type: string
+          format: date-time
+          description: Assigned by backend at ingestion time.
+          readOnly: true
+        ingestedAt:
+          type: string
+          format: date-time
+          description: Assigned by backend after persistence.
+          readOnly: true
+        url:
+          type: string
+          format: uri
+        path:
+          type: string
+        referrer:
+          type: string
+          format: uri
+        userAgent:
+          type: string
+        viewport:
+          type: object
+          properties:
+            w:
+              type: integer
+            h:
+              type: integer
+        screen:
+          type: object
+          properties:
+            w:
+              type: integer
+            h:
+              type: integer
+        tzOffsetMin:
+          type: integer
+        locale:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+        element:
+          $ref: "#/components/schemas/ElementDetails"
+    EventBatchRequest:
+      type: object
+      required: [sentAt, sdkVersion, events]
+      properties:
+        sentAt:
+          type: string
+          format: date-time
+        sdkVersion:
+          type: string
+        events:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/EventPayload"
+    EventAcceptedResponse:
+      type: object
+      required:
+        [accepted, tenantId, requestId, acceptedCount, rejectedCount, serverTime]
+      properties:
+        accepted:
+          type: boolean
+          example: true
+        tenantId:
+          type: string
+        requestId:
+          type: string
+          format: uuid
+        acceptedCount:
+          type: integer
+          minimum: 0
+        rejectedCount:
+          type: integer
+          minimum: 0
+        serverTime:
+          type: string
+          format: date-time
+    AnalyzerEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventPayload"
+      required:
         - sessionId
         - eventName
         - timestamp
@@ -155,74 +527,27 @@ components:
         - properties
       properties:
         apiKey:
-          type: string
-        sessionId:
-          type: string
-        eventName:
-          type: string
-          examples: [page_view, click, custom_event]
-        timestamp:
+          readOnly: true
+        receivedAt:
           type: string
           format: date-time
-        url:
+          readOnly: true
+        ingestedAt:
           type: string
-          format: uri
-        userAgent:
-          type: string
-        properties:
-          type: object
-          additionalProperties: true
-        element:
-          type: object
-          properties:
-            tagName:
-              type: string
-            id:
-              type: string
-            classes:
-              type: array
-              items:
-                type: string
-            text:
-              type: string
-    AnalyzerEvent:
+          format: date-time
+          readOnly: true
+    AnalyzerEventsResponse:
       type: object
-      required:
-        - sessionId
-        - eventName
-        - timestamp
-        - url
-        - userAgent
-        - properties
+      required: [tenantId, count, events]
       properties:
-        sessionId:
+        tenantId:
           type: string
-        eventName:
-          type: string
-        timestamp:
-          type: string
-          format: date-time
-        url:
-          type: string
-          format: uri
-        userAgent:
-          type: string
-        properties:
-          type: object
-          additionalProperties: true
-        element:
-          type: object
-          properties:
-            tagName:
-              type: string
-            id:
-              type: string
-            classes:
-              type: array
-              items:
-                type: string
-            text:
-              type: string
+        count:
+          type: integer
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyzerEvent"
     RankedMetric:
       type: object
       required: [key, count]
@@ -231,15 +556,35 @@ components:
           type: string
         count:
           type: integer
-    MetricSummary:
+    TimeseriesPoint:
+      type: object
+      required: [ts, pageViews, clicks, sessions]
+      properties:
+        ts:
+          type: string
+          format: date-time
+        pageViews:
+          type: integer
+          minimum: 0
+        clicks:
+          type: integer
+          minimum: 0
+        sessions:
+          type: integer
+          minimum: 0
+    MetricSummaryPayload:
       type: object
       required:
         - rangeStart
         - rangeEnd
         - totalPageViews
         - totalClicks
+        - uniqueSessions
+        - avgSessionDurationSec
+        - bounceRate
         - topPages
         - topElements
+        - timeseries
         - generatedAt
       properties:
         rangeStart:
@@ -252,6 +597,16 @@ components:
           type: integer
         totalClicks:
           type: integer
+        uniqueSessions:
+          type: integer
+          minimum: 0
+        avgSessionDurationSec:
+          type: number
+          minimum: 0
+        bounceRate:
+          type: number
+          minimum: 0
+          maximum: 1
         topPages:
           type: array
           items:
@@ -260,15 +615,32 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RankedMetric"
+        timeseries:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimeseriesPoint"
         generatedAt:
           type: string
           format: date-time
+    SummaryAcceptedResponse:
+      type: object
+      required: [accepted, tenantId, summaryId]
+      properties:
+        accepted:
+          type: boolean
+        tenantId:
+          type: string
+        summaryId:
+          type: string
     MetricOverview:
       type: object
       required:
         - tenantId
         - totalPageViews
         - totalClicks
+        - uniqueSessions
+        - avgSessionDurationSec
+        - bounceRate
         - topPages
         - topElements
         - generatedAt
@@ -279,6 +651,16 @@ components:
           type: integer
         totalClicks:
           type: integer
+        uniqueSessions:
+          type: integer
+          minimum: 0
+        avgSessionDurationSec:
+          type: number
+          minimum: 0
+        bounceRate:
+          type: number
+          minimum: 0
+          maximum: 1
         topPages:
           type: array
           items:
@@ -290,3 +672,262 @@ components:
         generatedAt:
           type: string
           format: date-time
+    TimeseriesResponse:
+      type: object
+      required: [tenantId, interval, rangeStart, rangeEnd, points, generatedAt]
+      properties:
+        tenantId:
+          type: string
+        interval:
+          type: string
+          enum: [hour, day]
+        rangeStart:
+          type: string
+          format: date-time
+        rangeEnd:
+          type: string
+          format: date-time
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimeseriesPoint"
+        generatedAt:
+          type: string
+          format: date-time
+    RankedMetricsResponse:
+      type: object
+      required: [tenantId, rangeStart, rangeEnd, items, generatedAt]
+      properties:
+        tenantId:
+          type: string
+        rangeStart:
+          type: string
+          format: date-time
+        rangeEnd:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RankedMetric"
+        generatedAt:
+          type: string
+          format: date-time
+    SessionMetric:
+      type: object
+      required:
+        [sessionId, startedAt, endedAt, durationSec, pageViews, clicks, bounced]
+      properties:
+        sessionId:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+        durationSec:
+          type: number
+          minimum: 0
+        pageViews:
+          type: integer
+          minimum: 0
+        clicks:
+          type: integer
+          minimum: 0
+        bounced:
+          type: boolean
+    SessionMetricsResponse:
+      type: object
+      required:
+        [tenantId, rangeStart, rangeEnd, totalSessions, avgSessionDurationSec, bounceRate, sessions, generatedAt]
+      properties:
+        tenantId:
+          type: string
+        rangeStart:
+          type: string
+          format: date-time
+        rangeEnd:
+          type: string
+          format: date-time
+        totalSessions:
+          type: integer
+          minimum: 0
+        avgSessionDurationSec:
+          type: number
+          minimum: 0
+        bounceRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionMetric"
+        generatedAt:
+          type: string
+          format: date-time
+    AnalyzerCheckpoint:
+      type: object
+      required: [tenantId, lastProcessedAt, updatedAt]
+      properties:
+        tenantId:
+          type: string
+        lastProcessedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AnalyzerCheckpointUpdate:
+      type: object
+      required: [lastProcessedAt]
+      properties:
+        lastProcessedAt:
+          type: string
+          format: date-time
+    PingResponse:
+      type: object
+      required: [status, service, serverTime, requestId, db, uptimeSec]
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: metricflow-backend
+        serverTime:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+          format: uuid
+        db:
+          type: object
+          required: [connected, latencyMs]
+          properties:
+            connected:
+              type: boolean
+            latencyMs:
+              type: integer
+              minimum: 0
+        uptimeSec:
+          type: integer
+          minimum: 0
+    EventRawDocument:
+      type: object
+      description: MongoDB events_raw document shape.
+      required:
+        - _id
+        - tenantId
+        - apiKey
+        - sessionId
+        - eventId
+        - eventName
+        - timestamp
+        - receivedAt
+        - url
+        - userAgent
+      properties:
+        _id:
+          type: string
+          description: Mongo ObjectId string.
+        tenantId:
+          type: string
+        apiKey:
+          type: string
+        scriptId:
+          type: string
+        sessionId:
+          type: string
+        eventId:
+          type: string
+        eventName:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        receivedAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+        path:
+          type: string
+        userAgent:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+        element:
+          $ref: "#/components/schemas/ElementDetails"
+    MetricSummaryDocument:
+      allOf:
+        - $ref: "#/components/schemas/MetricSummaryPayload"
+        - type: object
+          required: [_id, tenantId]
+          properties:
+            _id:
+              type: string
+              description: Mongo ObjectId string.
+            tenantId:
+              type: string
+    ApiKeyDocument:
+      type: object
+      required: [_id, tenantId, key, type, status, allowedOrigins, createdAt]
+      properties:
+        _id:
+          type: string
+          description: Mongo ObjectId string.
+        tenantId:
+          type: string
+        key:
+          type: string
+        type:
+          type: string
+          enum: [publishable, secret]
+        status:
+          type: string
+          enum: [active, disabled]
+        allowedOrigins:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+x-mongodb:
+  database: metricflow
+  accessPolicy:
+    backend: readWrite
+    sdk: none
+    analyzer: none
+    dashboard: none
+  collections:
+    events_raw:
+      schema: "#/components/schemas/EventRawDocument"
+      indexes:
+        - keys: { tenantId: 1, timestamp: 1 }
+        - keys: { tenantId: 1, sessionId: 1, timestamp: 1 }
+        - keys: { tenantId: 1, eventName: 1, timestamp: 1 }
+        - keys: { tenantId: 1, eventId: 1 }
+          unique: true
+        - keys: { receivedAt: 1 }
+          ttlSeconds: 7776000
+    metric_summaries:
+      schema: "#/components/schemas/MetricSummaryDocument"
+      indexes:
+        - keys: { tenantId: 1, rangeStart: 1, rangeEnd: 1 }
+          unique: true
+        - keys: { tenantId: 1, generatedAt: -1 }
+    analyzer_checkpoints:
+      schema: "#/components/schemas/AnalyzerCheckpoint"
+      indexes:
+        - keys: { tenantId: 1 }
+          unique: true
+    api_keys:
+      schema: "#/components/schemas/ApiKeyDocument"
+      indexes:
+        - keys: { key: 1 }
+          unique: true
