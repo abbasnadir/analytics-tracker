@@ -1,0 +1,22 @@
+node_modules
+.next
+dist
+coverage
+.env
+.env.local
+.venv
+venv
+__pycache__
+*.pyc
+.DS_Store
+
+# Service-local env files
+apps/**/.env
+services/**/.env
+
+# Analyzer outputs
+services/analyzer/.pytest_cache
+services/analyzer/.mypy_cache
+
+# Logs
+*.log
