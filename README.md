@@ -1,5 +1,18 @@
 # MetricFlow
 
+## What This App Does
+
+MetricFlow is a lightweight event analytics system for websites.
+
+You embed the SDK script into a site, and it captures interaction events like page views, clicks, and custom events. Those events are sent to the backend, stored as raw telemetry, and processed by the Python analyzer into summary metrics. The dashboard then reads those processed metrics from the backend and displays analytics cards/tables/charts.
+
+In short:
+
+- SDK collects browser events
+- backend validates and stores events in MongoDB
+- analyzer computes aggregates and trends
+- dashboard visualizes ready-to-use metrics
+
 MetricFlow has 4 parts:
 
 - `apps/sdk` = browser tracking script
@@ -16,6 +29,42 @@ Whole app rule:
 
 Simple architecture file: [ARCHITECTURE.md](./ARCHITECTURE.md)  
 API contract file: [api.yml](./api.yml)
+
+## Design and Configuration Reference Guide
+
+Use this section when deciding which file to open for a specific question.
+
+### Product and System Design
+
+- High-level architecture and team boundaries: [ARCHITECTURE.md](./ARCHITECTURE.md)
+- Current system constraints and working rules: [INSTRUCTIONS.md](./INSTRUCTIONS.md)
+- Full end-to-end integration blueprint (SDK, backend, analyzer, dashboard, MongoDB): [design/metricflow-integration-spec.md](./design/metricflow-integration-spec.md)
+
+### API Contracts
+
+- Source of truth for backend routes, payloads, and responses: [api.yml](./api.yml)
+
+### Database Design
+
+- MongoDB data model and indexes in blueprint form: [design/metricflow-integration-spec.md](./design/metricflow-integration-spec.md)
+- Legacy DB note/diagram (if needed for old context): [db.md](./db.md)
+
+### Service-Specific Configuration
+
+- Backend env variables: [services/backend/.env.example](./services/backend/.env.example)
+- Backend env parsing/validation: [services/backend/src/config/env.ts](./services/backend/src/config/env.ts)
+- Backend architecture/routing guidance: [services/backend/README.md](./services/backend/README.md)
+
+- Analyzer env variables: [services/analyzer/.env.example](./services/analyzer/.env.example)
+- Analyzer runtime settings loader: [services/analyzer/src/metricflow_analyzer/config.py](./services/analyzer/src/metricflow_analyzer/config.py)
+- Analyzer component guide: [services/analyzer/README.md](./services/analyzer/README.md)
+
+- Dashboard env variables: [apps/dashboard/.env.example](./apps/dashboard/.env.example)
+- Dashboard backend API client: [apps/dashboard/lib/api.ts](./apps/dashboard/lib/api.ts)
+- Dashboard component guide: [apps/dashboard/README.md](./apps/dashboard/README.md)
+
+- SDK integration guide and embed usage: [apps/sdk/README.md](./apps/sdk/README.md)
+- SDK tracking behavior and options: [apps/sdk/src/index.ts](./apps/sdk/src/index.ts)
 
 ## Team Split
 
