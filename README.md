@@ -51,6 +51,10 @@ Use this section when deciding which file to open for a specific question.
 
 ### Service-Specific Configuration
 
+- Unified env source for whole project: [.env.unified.example](./.env.unified.example)
+- Generate all module env files from one unified env: [scripts/sync-env.mjs](./scripts/sync-env.mjs)
+- Run backend + dashboard + analyzer together: [scripts/dev-all.mjs](./scripts/dev-all.mjs)
+
 - Backend env variables: [services/backend/.env.example](./services/backend/.env.example)
 - Backend env parsing/validation: [services/backend/src/config/env.ts](./services/backend/src/config/env.ts)
 - Backend architecture/routing guidance: [services/backend/README.md](./services/backend/README.md)
@@ -103,6 +107,16 @@ For noob setup, easiest DB option is MongoDB Atlas free cluster.
 
 ## Super Simple Setup
 
+Fast path for teammates:
+
+```bash
+npm install
+cp .env.unified.example .env.unified
+npm run env:sync
+cd services/analyzer && python3 -m venv .venv && source .venv/bin/activate && pip install -e .[dev] && cd ../..
+npm run dev:all
+```
+
 ### 1. Clone project
 
 ```bash
@@ -116,42 +130,36 @@ cd <your-repo-folder>
 npm install
 ```
 
-### 3. Create env files
+### 3. Create one unified env file
 
 Mac/Linux:
 
 ```bash
-cp services/backend/.env.example services/backend/.env
-cp apps/dashboard/.env.example apps/dashboard/.env.local
-cp services/analyzer/.env.example services/analyzer/.env
+cp .env.unified.example .env.unified
+npm run env:sync
 ```
 
 Windows PowerShell:
 
 ```powershell
-Copy-Item services/backend/.env.example services/backend/.env
-Copy-Item apps/dashboard/.env.example apps/dashboard/.env.local
-Copy-Item services/analyzer/.env.example services/analyzer/.env
+Copy-Item .env.unified.example .env.unified
+npm run env:sync
 ```
 
-### 4. Put MongoDB URI in backend env
+This generates:
 
-Open `services/backend/.env.example` and copy values into `services/backend/.env`.
+- `services/backend/.env`
+- `apps/dashboard/.env.local`
+- `services/analyzer/.env`
 
-Important:
+Edit only `.env.unified` and re-run `npm run env:sync` when variables change.
 
-- set `MONGODB_URI` to your Atlas/local MongoDB connection string
-- keep `PORT=4000`
-- keep `DEFAULT_API_KEY=mf_demo_key` for now
+### 4. Put MongoDB URI in unified env
 
-Example:
+Open `.env.unified` and set:
 
-```env
-PORT=4000
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/metricflow
-CORS_ORIGIN=http://localhost:3000
-DEFAULT_API_KEY=mf_demo_key
-```
+- `MONGODB_URI` to Atlas/local connection string
+- keep API keys the same for local dev (default values are already matched)
 
 ### 5. Set up Python once
 
@@ -176,6 +184,22 @@ cd ../..
 ```
 
 ## How To Run
+
+Unified command (recommended for team):
+
+```bash
+npm run dev:all
+```
+
+This command reads `.env.unified` and starts backend, dashboard, and analyzer together.
+
+If you change env values, re-run:
+
+```bash
+npm run env:sync
+```
+
+If you prefer separate terminals, keep using the manual commands below.
 
 Open 3 terminals.
 
