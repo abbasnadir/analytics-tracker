@@ -6,6 +6,6 @@ healthRouter.get("/", (_request, response) => {
   response.json({
     status: "ok",
     service: "metricflow-backend",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });

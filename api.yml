@@ -410,7 +410,6 @@ components:
         - schemaVersion
         - apiKey
         - sessionId
-        - eventId
         - eventName
         - timestamp
         - url

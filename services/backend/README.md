@@ -25,9 +25,17 @@ Only backend talks to MongoDB.
 ## Routes
 
 - `POST /api/v1/events` from SDK
+- `POST /api/v1/events/batch` from SDK
 - `GET /api/v1/analyzer/events` for analyzer
 - `POST /api/v1/analyzer/summaries` from analyzer
+- `GET /api/v1/analyzer/checkpoint` for analyzer
+- `PUT /api/v1/analyzer/checkpoint` for analyzer
 - `GET /api/v1/metrics/overview` for dashboard
+- `GET /api/v1/metrics/timeseries` for dashboard
+- `GET /api/v1/metrics/top-pages` for dashboard
+- `GET /api/v1/metrics/top-elements` for dashboard
+- `GET /api/v1/metrics/sessions` for dashboard
+- `GET /api/v1/metrics/health/ping` for dashboard
 - `GET /health`
 
 Full contract: [api.yml](../../api.yml)
@@ -51,6 +59,16 @@ Backend now returns JSON errors with:
 - `400` for bad JSON/body
 - `401` for bad API key
 - `500` for unexpected crash
+
+## Environment
+
+- `PORT`: backend port
+- `MONGODB_URI`: MongoDB connection string
+- `CORS_ORIGIN`: allowed browser origin
+- `DEFAULT_API_KEY`: fallback API key
+- `JSON_BODY_LIMIT`: max JSON payload size (default `256kb`)
+- `MAX_ANALYZER_EVENTS`: cap per analyzer pull request
+- `EVENTS_TTL_DAYS`: raw event retention window
 
 ## Safe Files To Touch
 

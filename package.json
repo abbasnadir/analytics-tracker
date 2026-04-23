@@ -9,6 +9,8 @@
   "scripts": {
     "dev:backend": "npm run dev --workspace @metricflow/backend",
     "dev:dashboard": "npm run dev --workspace @metricflow/dashboard",
+    "dev:all": "node scripts/dev-all.mjs",
+    "env:sync": "node scripts/sync-env.mjs",
     "build:sdk": "npm run build --workspace @metricflow/sdk",
     "build:backend": "npm run build --workspace @metricflow/backend",
     "build:dashboard": "npm run build --workspace @metricflow/dashboard",
