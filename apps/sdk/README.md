@@ -18,12 +18,27 @@ This is browser tracking script.
 ## Route Used
 
 - `POST /api/v1/events`
+- `POST /api/v1/events/batch`
 
 Check shared contract in [api.yml](../../api.yml).
 
-## Run / Build
+## Install and Run / Build
+
+Unified team flow (from project root):
 
 ```bash
+npm install
+cp .env.unified.example .env.unified
+npm run env:sync
+npm run dev:all
+```
+
+SDK-only flow:
+
+```bash
+npm install
+cp .env.unified.example .env.unified
+npm run env:sync
 npm run build:sdk
 ```
 
@@ -40,8 +55,10 @@ npm run build
 ```html
 <script src="/metricflow.js"></script>
 <script>
-  mf('init', 'mf_demo_key', { endpoint: 'http://localhost:4000/api/v1/events' });
-  mf('track', 'cta_clicked', { label: 'hero-button' });
+  mf("init", "mf_demo_key", {
+    endpoint: "http://localhost:4000/api/v1/events",
+  });
+  mf("track", "cta_clicked", { label: "hero-button" });
 </script>
 ```
 

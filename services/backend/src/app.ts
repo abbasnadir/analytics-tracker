@@ -14,11 +14,11 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: env.CORS_ORIGIN
-    })
+      origin: env.CORS_ORIGIN,
+    }),
   );
   app.use(attachRequestContext);
-  app.use(express.json({ limit: "256kb" }));
+  app.use(express.json({ limit: env.JSON_BODY_LIMIT }));
 
   app.use("/health", healthRouter);
   app.use("/api/v1/events", eventsRouter);

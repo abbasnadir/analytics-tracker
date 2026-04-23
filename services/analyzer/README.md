@@ -18,13 +18,34 @@ This is Python metrics worker.
 
 - `GET /api/v1/analyzer/events`
 - `POST /api/v1/analyzer/summaries`
+- `GET /api/v1/analyzer/checkpoint`
+- `PUT /api/v1/analyzer/checkpoint`
 
 Full contract: [api.yml](../../api.yml)
 
-## Run
+## Install and Run
+
+Unified team flow (from project root):
 
 ```bash
-cp .env.example .env
+npm install
+cp .env.unified.example .env.unified
+npm run env:sync
+cd services/analyzer
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+cd ../..
+npm run dev:all
+```
+
+Analyzer-only flow:
+
+```bash
+npm install
+cp .env.unified.example .env.unified
+npm run env:sync
+cd services/analyzer
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]

@@ -11,8 +11,17 @@ type MetricSummaryDocument = {
   rangeEnd: string;
   totalPageViews: number;
   totalClicks: number;
+  uniqueSessions: number;
+  avgSessionDurationSec: number;
+  bounceRate: number;
   topPages: RankedMetric[];
   topElements: RankedMetric[];
+  timeseries: Array<{
+    ts: string;
+    pageViews: number;
+    clicks: number;
+    sessions: number;
+  }>;
   generatedAt: string;
   createdAt: Date;
   updatedAt: Date;
@@ -21,9 +30,9 @@ type MetricSummaryDocument = {
 const rankedMetricSchema = new Schema<RankedMetric>(
   {
     key: { type: String, required: true },
-    count: { type: Number, required: true }
+    count: { type: Number, required: true },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const metricSummarySchema = new Schema<MetricSummaryDocument>(
@@ -33,11 +42,35 @@ const metricSummarySchema = new Schema<MetricSummaryDocument>(
     rangeEnd: { type: String, required: true },
     totalPageViews: { type: Number, required: true },
     totalClicks: { type: Number, required: true },
+    uniqueSessions: { type: Number, required: true, default: 0 },
+    avgSessionDurationSec: { type: Number, required: true, default: 0 },
+    bounceRate: { type: Number, required: true, default: 0 },
     topPages: { type: [rankedMetricSchema], default: [] },
     topElements: { type: [rankedMetricSchema], default: [] },
-    generatedAt: { type: String, required: true }
+    timeseries: {
+      type: [
+        {
+          _id: false,
+          ts: { type: String, required: true },
+          pageViews: { type: Number, required: true },
+          clicks: { type: Number, required: true },
+          sessions: { type: Number, required: true },
+        },
+      ],
+      default: [],
+    },
+    generatedAt: { type: String, required: true },
   },
-  { timestamps: true, collection: "metric_summaries" }
+  { timestamps: true, collection: "metric_summaries" },
 );
 
-export const MetricSummaryModel = model<MetricSummaryDocument>("MetricSummary", metricSummarySchema);
+metricSummarySchema.index(
+  { tenantId: 1, rangeStart: 1, rangeEnd: 1 },
+  { unique: true },
+);
+metricSummarySchema.index({ tenantId: 1, generatedAt: -1 });
+
+export const MetricSummaryModel = model<MetricSummaryDocument>(
+  "MetricSummary",
+  metricSummarySchema,
+);
