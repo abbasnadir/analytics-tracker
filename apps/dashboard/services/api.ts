@@ -70,6 +70,15 @@ export interface TrendsResponse {
   granularity: "hour" | "day" | "week" | "month";
 }
 
+export interface GeoDataPoint {
+  id: string; // ISO country code
+  value: number;
+}
+
+export interface GeoMetricsResponse {
+  data: GeoDataPoint[];
+}
+
 export interface ApiError {
   message: string;
   status?: number;
@@ -162,6 +171,13 @@ export const api = {
    */
   getTrends: (filters: ApiFilters = {}): Promise<TrendsResponse> =>
     request<TrendsResponse>("/metrics/trends", filters),  // GET /api/v1/metrics/trends
+
+  /**
+   * GET /metrics/geo
+   * Returns geographic distribution data.
+   */
+  getGeoMetrics: (filters: ApiFilters = {}): Promise<GeoMetricsResponse> =>
+    request<GeoMetricsResponse>("/metrics/geo", filters),  // GET /api/v1/metrics/geo
 } as const;
 
 export default api;

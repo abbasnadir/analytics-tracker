@@ -17,11 +17,14 @@ import ChartWrapper   from "@/components/ChartWrapper";
 import LineChartComponent from "@/components/LineChartComponent";
 import BarChartComponent  from "@/components/BarChartComponent";
 import PieChartComponent  from "@/components/PieChartComponent";
+import GeoMapComponent    from "@/components/GeoMapComponent";
+import ExportButton       from "@/components/ExportButton";
 
 import { useOverviewMetrics } from "@/hooks/useOverviewMetrics";
 import { useTopPages }        from "@/hooks/useTopPages";
 import { useClickMetrics }    from "@/hooks/useClickMetrics";
 import { useTrends }          from "@/hooks/useTrends";
+import { useGeoMetrics }      from "@/hooks/useGeoMetrics";
 
 import { ApiFilters } from "@/services/api";
 
@@ -45,10 +48,11 @@ export default function DashboardPage() {
   const topPages     = useTopPages(filters);
   const clickMetrics = useClickMetrics(filters);
   const trends       = useTrends(filters);
+  const geoMetrics   = useGeoMetrics(filters);
 
   // Aggregate loading state for FilterBar spinner
   const anyLoading =
-    overview.isLoading || topPages.isLoading || clickMetrics.isLoading || trends.isLoading;
+    overview.isLoading || topPages.isLoading || clickMetrics.isLoading || trends.isLoading || geoMetrics.isLoading;
 
   return (
     <div className="dashboard">
@@ -101,6 +105,7 @@ export default function DashboardPage() {
           subtitle={`Granularity: ${trends.data?.granularity ?? "—"}`}
           isLoading={trends.isLoading}
           error={trends.error}
+          action={trends.data ? <ExportButton data={trends.data.series} filename="metric-trends.csv" /> : null}
         >
           {trends.data && (
             <LineChartComponent
@@ -118,6 +123,7 @@ export default function DashboardPage() {
           subtitle="by view count"
           isLoading={topPages.isLoading}
           error={topPages.error}
+          action={topPages.data ? <ExportButton data={topPages.data.pages} filename="top-pages.csv" /> : null}
         >
           {topPages.data && (
             <BarChartComponent data={topPages.data.pages} />
@@ -133,12 +139,28 @@ export default function DashboardPage() {
           }
           isLoading={clickMetrics.isLoading}
           error={clickMetrics.error}
+          action={clickMetrics.data ? <ExportButton data={clickMetrics.data.distribution} filename="click-distribution.csv" /> : null}
         >
           {clickMetrics.data && (
             <PieChartComponent
               data={clickMetrics.data.distribution}
               total={clickMetrics.data.total}
             />
+          )}
+        </ChartWrapper>
+      </section>
+
+      {/* ── Charts Row 3: Geographic Distribution ───────────────────────────── */}
+      <section className="dashboard__charts-row dashboard__charts-row--full">
+        <ChartWrapper
+          title="Geographic Distribution"
+          subtitle="User activity by country"
+          isLoading={geoMetrics.isLoading}
+          error={geoMetrics.error}
+          action={geoMetrics.data ? <ExportButton data={geoMetrics.data.data} filename="geo-distribution.csv" /> : null}
+        >
+          {geoMetrics.data && (
+            <GeoMapComponent data={geoMetrics.data.data} />
           )}
         </ChartWrapper>
       </section>

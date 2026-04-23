@@ -104,17 +104,29 @@ export default function LoginPage() {
     setSelectedProvider(provider);
     try {
       const raw = localStorage.getItem("metricflow_accounts");
+      let accountsList: UserData[] = [];
       if (raw) {
         const accountsObj = JSON.parse(raw);
-        // deduplicate accounts by email just in case
-        const accountsList = Object.values(accountsObj) as UserData[];
-        const uniqueAccounts = accountsList.filter((acc, index, self) =>
-          index === self.findIndex((a) => a.email === acc.email)
-        );
-        setAvailableAccounts(uniqueAccounts);
-      } else {
-        setAvailableAccounts([]);
+        accountsList = Object.values(accountsObj) as UserData[];
       }
+      
+      // If no local accounts exist, provide a mock signed-in option
+      if (accountsList.length === 0) {
+        accountsList.push({
+          firstName: provider,
+          lastName: "User",
+          email: `demo@${provider.toLowerCase()}.com`,
+          mobile: "",
+          role: "Member",
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
+      }
+
+      // deduplicate accounts by email just in case
+      const uniqueAccounts = accountsList.filter((acc, index, self) =>
+        index === self.findIndex((a) => a.email === acc.email)
+      );
+      setAvailableAccounts(uniqueAccounts);
     } catch {
       setAvailableAccounts([]);
     }
