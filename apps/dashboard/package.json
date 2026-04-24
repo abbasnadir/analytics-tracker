@@ -1,5 +1,5 @@
 {
-  "name": "metricflow-dashboard",
+  "name": "@metricflow/dashboard",
   "version": "1.0.0",
   "private": true,
   "scripts": {

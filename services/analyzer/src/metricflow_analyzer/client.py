@@ -4,6 +4,8 @@ from datetime import datetime
 from typing import Any
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from .config import Settings
 from .models import MetricSummary
@@ -15,10 +17,21 @@ class MetricFlowBackendClient:
         self.headers = {"x-api-key": settings.api_key}
         self.timeout = settings.request_timeout
 
+        self.session = requests.Session()
+        retry_strategy = Retry(
+            total=5,
+            backoff_factor=1.0,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "OPTIONS", "POST"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+        self.session.headers.update(self.headers)
+
     def fetch_events(self, range_start: datetime, range_end: datetime) -> dict[str, Any]:
-        response = requests.get(
+        response = self.session.get(
             f"{self.base_url}/api/v1/analyzer/events",
-            headers=self.headers,
             params={
                 "start": range_start.isoformat(),
                 "end": range_end.isoformat(),
@@ -29,9 +42,9 @@ class MetricFlowBackendClient:
         return response.json()
 
     def upload_summary(self, summary: MetricSummary) -> dict[str, Any]:
-        response = requests.post(
+        response = self.session.post(
             f"{self.base_url}/api/v1/analyzer/summaries",
-            headers={**self.headers, "Content-Type": "application/json"},
+            headers={"Content-Type": "application/json"},
             json={
                 "rangeStart": summary.range_start.isoformat(),
                 "rangeEnd": summary.range_end.isoformat(),

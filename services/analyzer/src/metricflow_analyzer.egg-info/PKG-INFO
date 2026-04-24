@@ -1,0 +1,71 @@
+Metadata-Version: 2.4
+Name: metricflow-analyzer
+Version: 0.1.0
+Summary: MetricFlow analytics worker
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.32.3
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: user-agents>=2.2.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.2; extra == "dev"
+
+# Analyzer
+
+This is Python metrics worker.
+
+## What This Part Does
+
+- asks backend for raw events
+- turns raw events into useful metrics
+- sends summary back to backend
+
+## What This Part Must Not Do
+
+- no direct MongoDB access
+- no dashboard UI work
+- no browser tracking code
+
+## Routes Used
+
+- `GET /api/v1/analyzer/events`
+- `POST /api/v1/analyzer/summaries`
+- `GET /api/v1/analyzer/checkpoint`
+- `PUT /api/v1/analyzer/checkpoint`
+
+Full contract: [api.yml](../../api.yml)
+
+## Install and Run
+
+Unified team flow (from project root):
+
+```bash
+npm install
+cp .env.unified.example .env.unified
+npm run env:sync
+cd services/analyzer
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+cd ../..
+npm run dev:all
+```
+
+Analyzer-only flow:
+
+```bash
+npm install
+cp .env.unified.example .env.unified
+npm run env:sync
+cd services/analyzer
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+metricflow-analyzer
+```
+
+## Safe Files To Touch
+
+- `src/metricflow_analyzer/metrics.py`
+- `src/metricflow_analyzer/client.py`
+- `src/metricflow_analyzer/worker.py`

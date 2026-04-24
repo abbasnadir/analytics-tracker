@@ -169,7 +169,7 @@ Mac/Linux:
 cd services/analyzer
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .[dev]
+pip install -e '.[dev]'
 cd ../..
 ```
 
@@ -179,7 +179,7 @@ Windows PowerShell:
 cd services/analyzer
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -e .[dev]
+pip install -e '.[dev]'
 cd ../..
 ```
 

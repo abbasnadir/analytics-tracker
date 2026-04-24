@@ -94,7 +94,7 @@ const analyzerLocalBin = process.platform === "win32"
   ? join(analyzerDir, ".venv", "Scripts", "metricflow-analyzer.exe")
   : join(analyzerDir, ".venv", "bin", "metricflow-analyzer");
 
-const analyzerCmd = existsSync(analyzerLocalBin) ? `"${analyzerLocalBin}"` : "metricflow-analyzer";
+const analyzerCmd = existsSync(analyzerLocalBin) ? analyzerLocalBin : "metricflow-analyzer";
 
 const processSpecs = [
   {
