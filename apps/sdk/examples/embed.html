@@ -8,12 +8,16 @@
   <body>
     <button id="cta">Track CTA</button>
 
-    <script src="../dist/index.global.js"></script>
+    <script
+      async
+      src="../dist/metricflow.js"
+      data-mf-token="mf_demo_key"
+      data-mf-endpoint="http://localhost:4000/api/v1/events"
+      data-mf-auto-track="true"
+      data-mf-scroll="true"
+      data-mf-perf="true"
+    ></script>
     <script>
-      mf("init", "mf_demo_key", {
-        endpoint: "http://localhost:4000/api/v1/events"
-      });
-
       document.getElementById("cta").addEventListener("click", function () {
         mf("track", "cta_clicked", { source: "example-page" });
       });

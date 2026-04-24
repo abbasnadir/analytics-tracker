@@ -53,14 +53,29 @@ npm run build
 ## Embed Example
 
 ```html
-<script src="/metricflow.js"></script>
+<script
+  async
+  src="/metricflow.js"
+  data-mf-token="mf_demo_key"
+  data-mf-endpoint="http://localhost:4000/api/v1/events"
+></script>
 <script>
-  mf("init", "mf_demo_key", {
-    endpoint: "http://localhost:4000/api/v1/events",
-  });
   mf("track", "cta_clicked", { label: "hero-button" });
 </script>
 ```
+
+Drop-in file produced by build:
+
+- `apps/sdk/dist/metricflow.js`
+
+Supported bootstrap attributes on the script tag:
+
+- `data-mf-token` (required)
+- `data-mf-endpoint` (optional, defaults to `/api/v1/events`)
+- `data-mf-script-id` (optional)
+- `data-mf-auto-track` (`true`/`false`)
+- `data-mf-scroll` (`true`/`false`)
+- `data-mf-perf` (`true`/`false`)
 
 ## Safe Files To Touch
 

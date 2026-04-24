@@ -7,7 +7,7 @@
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsup src/index.ts --format esm,iife --dts --global-name MetricFlowSDK",
+    "build": "tsup src/index.ts --format esm,iife --dts --global-name MetricFlowSDK && node scripts/postbuild.mjs",
     "dev": "tsup src/index.ts --watch --format esm,iife --dts --global-name MetricFlowSDK",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit"

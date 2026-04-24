@@ -1,11 +1,24 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const unifiedEnvPath = process.env.METRICFLOW_UNIFIED_ENV
-  ? resolve(process.env.METRICFLOW_UNIFIED_ENV)
-  : join(rootDir, ".env.unified");
+
+function resolveEnvSourcePath() {
+  if (process.env.METRICFLOW_UNIFIED_ENV) {
+    return resolve(process.env.METRICFLOW_UNIFIED_ENV);
+  }
+
+  const unifiedPath = join(rootDir, ".env.unified");
+
+  if (existsSync(unifiedPath)) {
+    return unifiedPath;
+  }
+
+  return join(rootDir, ".env");
+}
+
+const envSourcePath = resolveEnvSourcePath();
 
 function parseEnv(content) {
   const vars = {};
@@ -57,10 +70,10 @@ function pickEnv(keys, source) {
   return { lines, missing };
 }
 
-function writeEnvFile(targetPath, keys, source) {
+function writeEnvFile(targetPath, keys, source, sourceLabel) {
   const { lines, missing } = pickEnv(keys, source);
   const final = [
-    "# Auto-generated from .env.unified by scripts/sync-env.mjs",
+    `# Auto-generated from ${sourceLabel} by scripts/sync-env.mjs`,
     ...lines,
     ""
   ].join("\n");
@@ -74,14 +87,15 @@ function writeEnvFile(targetPath, keys, source) {
 let unifiedContent = "";
 
 try {
-  unifiedContent = readFileSync(unifiedEnvPath, "utf8");
+  unifiedContent = readFileSync(envSourcePath, "utf8");
 } catch {
-  console.error(`Missing unified env file at ${unifiedEnvPath}`);
-  console.error("Create it first: cp .env.unified.example .env.unified");
+  console.error(`Missing env source file at ${envSourcePath}`);
+  console.error("Create one first: cp .env.unified.example .env.unified or cp .env.unified.example .env");
   process.exit(1);
 }
 
 const unified = parseEnv(unifiedContent);
+const sourceLabel = envSourcePath.replace(`${rootDir}/`, "");
 
 const backendKeys = [
   "PORT",
@@ -111,20 +125,23 @@ const analyzerKeys = [
 const backendMissing = writeEnvFile(
   join(rootDir, "services", "backend", ".env"),
   backendKeys,
-  unified
+  unified,
+  sourceLabel
 );
 const dashboardMissing = writeEnvFile(
   join(rootDir, "apps", "dashboard", ".env.local"),
   dashboardKeys,
-  unified
+  unified,
+  sourceLabel
 );
 const analyzerMissing = writeEnvFile(
   join(rootDir, "services", "analyzer", ".env"),
   analyzerKeys,
-  unified
+  unified,
+  sourceLabel
 );
 
-console.log("Generated env files from unified env:");
+console.log(`Generated env files from ${sourceLabel}:`);
 console.log("- services/backend/.env");
 console.log("- apps/dashboard/.env.local");
 console.log("- services/analyzer/.env");
@@ -132,5 +149,5 @@ console.log("- services/analyzer/.env");
 const missing = [...backendMissing, ...dashboardMissing, ...analyzerMissing];
 
 if (missing.length > 0) {
-  console.warn("Missing keys in .env.unified:", Array.from(new Set(missing)).join(", "));
+  console.warn(`Missing keys in ${sourceLabel}:`, Array.from(new Set(missing)).join(", "));
 }

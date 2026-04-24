@@ -4,9 +4,22 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const unifiedEnvPath = process.env.METRICFLOW_UNIFIED_ENV
-  ? resolve(process.env.METRICFLOW_UNIFIED_ENV)
-  : join(rootDir, ".env.unified");
+
+function resolveEnvSourcePath() {
+  if (process.env.METRICFLOW_UNIFIED_ENV) {
+    return resolve(process.env.METRICFLOW_UNIFIED_ENV);
+  }
+
+  const unifiedPath = join(rootDir, ".env.unified");
+
+  if (existsSync(unifiedPath)) {
+    return unifiedPath;
+  }
+
+  return join(rootDir, ".env");
+}
+
+const envSourcePath = resolveEnvSourcePath();
 
 function parseEnv(content) {
   const vars = {};
@@ -65,14 +78,15 @@ function streamWithPrefix(stream, label) {
 let unifiedContent = "";
 
 try {
-  unifiedContent = readFileSync(unifiedEnvPath, "utf8");
+  unifiedContent = readFileSync(envSourcePath, "utf8");
 } catch {
-  console.error(`Missing unified env file at ${unifiedEnvPath}`);
-  console.error("Create it first: cp .env.unified.example .env.unified");
+  console.error(`Missing env source file at ${envSourcePath}`);
+  console.error("Create one first: cp .env.unified.example .env.unified or cp .env.unified.example .env");
   process.exit(1);
 }
 
 const unifiedEnv = parseEnv(unifiedContent);
+const sourceLabel = envSourcePath.replace(`${rootDir}/`, "");
 const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
 
 const analyzerDir = join(rootDir, "services", "analyzer");
@@ -80,7 +94,7 @@ const analyzerLocalBin = process.platform === "win32"
   ? join(analyzerDir, ".venv", "Scripts", "metricflow-analyzer.exe")
   : join(analyzerDir, ".venv", "bin", "metricflow-analyzer");
 
-const analyzerCmd = existsSync(analyzerLocalBin) ? analyzerLocalBin : "metricflow-analyzer";
+const analyzerCmd = existsSync(analyzerLocalBin) ? `"${analyzerLocalBin}"` : "metricflow-analyzer";
 
 const processSpecs = [
   {
@@ -154,7 +168,7 @@ for (const spec of processSpecs) {
   });
 }
 
-console.log("Started backend, dashboard, and analyzer using .env.unified");
+console.log(`Started backend, dashboard, and analyzer using ${sourceLabel}`);
 
 process.on("SIGINT", () => {
   stopAll("SIGINT");
