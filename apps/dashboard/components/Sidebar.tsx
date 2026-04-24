@@ -14,9 +14,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard",           label: "Overview",    icon: "◈" },
   { href: "/dashboard/events",    label: "Events",      icon: "⬡" },
   { href: "/dashboard/pages",     label: "Pages",       icon: "▤" },
-  { href: "/dashboard/funnels",   label: "Funnels",     icon: "⬦" },
   { href: "/dashboard/retention", label: "Retention",   icon: "↻"  },
-  { href: "/dashboard/settings",  label: "Settings",    icon: "⊙" },
 ];
 
 /**
