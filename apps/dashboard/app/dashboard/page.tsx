@@ -11,7 +11,8 @@
 
 import React, { useState, useCallback } from "react";
 
-import FilterBar      from "@/components/FilterBar";
+import { buildDefaultFilters } from "@/components/FilterBar";
+import DashboardFiltersPanel from "@/components/DashboardFiltersPanel";
 import MetricCard     from "@/components/MetricCard";
 import ChartWrapper   from "@/components/ChartWrapper";
 import LineChartComponent from "@/components/LineChartComponent";
@@ -37,7 +38,7 @@ const IconUser  = () => <span aria-hidden>⊚</span>;
 // ─── Page Component ───────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [filters, setFilters] = useState<ApiFilters>({});
+  const [filters, setFilters] = useState<ApiFilters>(buildDefaultFilters);
 
   const handleFiltersChange = useCallback((f: ApiFilters) => {
     setFilters(f);
@@ -56,10 +57,12 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard">
-      {/* ── Filter Bar ──────────────────────────────────────────────────────── */}
-      <section className="dashboard__filters" aria-label="Filters">
-        <FilterBar onFiltersChange={handleFiltersChange} isLoading={anyLoading} />
-      </section>
+      <DashboardFiltersPanel
+        title="Overview filters"
+        subtitle="Query backend-backed analytics by date range and event type."
+        onFiltersChange={handleFiltersChange}
+        isLoading={anyLoading}
+      />
 
       {/* ── Metric Cards ────────────────────────────────────────────────────── */}
       <section className="dashboard__metrics" aria-label="Key metrics">
@@ -89,8 +92,9 @@ export default function DashboardPage() {
         />
         <MetricCard
           metric={
+            overview.data?.uniqueVisitors ??
             overview.data?.sessions ?? {
-              label: "Sessions", value: 0, delta: 0, trend: "flat",
+              label: "Unique Visitors", value: 0, delta: 0, trend: "flat",
             }
           }
           icon={<IconUser />}
@@ -154,7 +158,11 @@ export default function DashboardPage() {
       <section className="dashboard__charts-row dashboard__charts-row--full">
         <ChartWrapper
           title="Geographic Distribution"
-          subtitle="User activity by country"
+          subtitle={
+            geoMetrics.data
+              ? `${geoMetrics.data.totalUniqueVisitors.toLocaleString()} unique visitors by country`
+              : "Unique visitors by country"
+          }
           isLoading={geoMetrics.isLoading}
           error={geoMetrics.error}
           action={geoMetrics.data ? <ExportButton data={geoMetrics.data.data} filename="geo-distribution.csv" /> : null}

@@ -36,6 +36,9 @@ export default function DashboardNavbar({ title = "Overview" }: DashboardNavbarP
     hour: "2-digit",
     minute: "2-digit",
   });
+  const notificationSummary = user.apiKey
+    ? "Live alert feed not wired yet"
+    : "Connect workspace to enable dashboard data";
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -89,36 +92,36 @@ export default function DashboardNavbar({ title = "Overview" }: DashboardNavbarP
             }}
           >
             <span className="navbar__btn-icon">◎</span>
-            <span className="navbar__badge">3</span>
+            <span className="navbar__badge">!</span>
           </button>
 
           {isNotificationsOpen && (
             <div className="navbar__popover" role="dialog" aria-label="Notifications">
               <div className="navbar__popover-header">
                 <h2 className="navbar__popover-title">Notifications</h2>
-                <span className="navbar__popover-meta">3 unread</span>
+                <span className="navbar__popover-meta">Integration status</span>
               </div>
 
               <ul className="navbar__notification-list" role="list">
                 <li className="navbar__notification-item">
                   <span className="navbar__notification-dot" />
                   <div>
-                    <p className="navbar__notification-title">Traffic spike on Overview</p>
-                    <p className="navbar__notification-text">Page views are up 18% in the last hour.</p>
+                    <p className="navbar__notification-title">Notifications not connected yet</p>
+                    <p className="navbar__notification-text">{notificationSummary}</p>
                   </div>
                 </li>
                 <li className="navbar__notification-item">
                   <span className="navbar__notification-dot" />
                   <div>
-                    <p className="navbar__notification-title">Funnels need review</p>
-                    <p className="navbar__notification-text">Checkout drop-off increased this morning.</p>
+                    <p className="navbar__notification-title">Current workspace</p>
+                    <p className="navbar__notification-text">{fullName}</p>
                   </div>
                 </li>
                 <li className="navbar__notification-item">
                   <span className="navbar__notification-dot" />
                   <div>
-                    <p className="navbar__notification-title">Sync completed</p>
-                    <p className="navbar__notification-text">All connected sources refreshed successfully.</p>
+                    <p className="navbar__notification-title">Route in focus</p>
+                    <p className="navbar__notification-text">{currentTitle}</p>
                   </div>
                 </li>
               </ul>

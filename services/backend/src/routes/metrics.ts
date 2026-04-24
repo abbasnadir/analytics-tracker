@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { requireApiKey } from "../middleware/api-key.js";
 import { isDatabaseConnected, pingDatabase } from "../config/database.js";
+import { AppError } from "../lib/app-error.js";
 import {
+  getGeoMetrics,
   getOverviewForRange,
   getOverview,
   getRankedElements,
@@ -106,11 +108,39 @@ metricsRouter.get(
 );
 
 metricsRouter.get(
+  "/geo",
+  requireApiKey,
+  async (request, response, next) => {
+    try {
+      const query = metricRangeQuerySchema.parse(request.query);
+      const metrics = await getGeoMetrics(
+        response.locals.tenantId,
+        query.start,
+        query.end,
+        query.limit,
+      );
+      response.json(metrics);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+metricsRouter.get(
   "/sessions",
   requireApiKey,
   async (request, response, next) => {
     try {
       const query = metricRangeQuerySchema.parse(request.query);
+
+      if (!query.start || !query.end) {
+        throw new AppError(
+          "start and end are required for session metrics",
+          400,
+          "INVALID_QUERY",
+        );
+      }
+
       const metrics = await getSessionMetrics(
         response.locals.tenantId,
         query.start,
@@ -135,6 +165,7 @@ metricsRouter.get(
         service: "metricflow-backend",
         serverTime: new Date().toISOString(),
         requestId: response.locals.requestId,
+        tenantId: response.locals.tenantId,
         db: {
           connected: isDatabaseConnected(),
           latencyMs: Math.max(0, dbLatencyMs),

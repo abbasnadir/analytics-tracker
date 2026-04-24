@@ -18,10 +18,12 @@ export const metricSummaryPayloadSchema = z.object({
   totalPageViews: z.number().int().nonnegative(),
   totalClicks: z.number().int().nonnegative(),
   uniqueSessions: z.number().int().nonnegative().default(0),
+  uniqueVisitors: z.number().int().nonnegative().default(0),
   avgSessionDurationSec: z.number().nonnegative().default(0),
   bounceRate: z.number().min(0).max(1).default(0),
   topPages: z.array(rankedMetricSchema).default([]),
   topElements: z.array(rankedMetricSchema).default([]),
+  geoBreakdown: z.array(rankedMetricSchema).default([]),
   timeseries: z.array(timeseriesPointSchema).default([]),
   generatedAt: z.string().datetime({ offset: true }),
 });

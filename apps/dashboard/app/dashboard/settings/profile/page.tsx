@@ -37,7 +37,7 @@ export default function ProfilePage() {
     setSaving(true);
     // Simulate API save
     await new Promise((r) => setTimeout(r, 900));
-    setUser({ ...form });
+    setUser({ ...user, ...form });
     setSaving(false);
     setEditing(false);
     setToast("Profile updated successfully");

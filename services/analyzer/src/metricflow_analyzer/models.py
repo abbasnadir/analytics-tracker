@@ -17,9 +17,14 @@ class MetricSummary:
     range_end: datetime
     total_page_views: int
     total_clicks: int
+    unique_sessions: int = 0
+    unique_visitors: int = 0
+    avg_session_duration_sec: float = 0.0
     bounce_rate: float = 0.0
     top_pages: list[RankedMetric] = field(default_factory=list)
     top_elements: list[RankedMetric] = field(default_factory=list)
+    geo_breakdown: list[RankedMetric] = field(default_factory=list)
+    timeseries: list[dict[str, int | str]] = field(default_factory=list)
     browser_breakdown: list[RankedMetric] = field(default_factory=list)
     os_breakdown: list[RankedMetric] = field(default_factory=list)
     device_breakdown: list[RankedMetric] = field(default_factory=list)

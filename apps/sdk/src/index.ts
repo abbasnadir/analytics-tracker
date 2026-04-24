@@ -21,6 +21,7 @@ type EventPayload = {
   schemaVersion: string;
   scriptId: string;
   sessionId: string;
+  visitorId?: string;
   eventName: EventName;
   timestamp: string;
   url: string;
@@ -31,6 +32,7 @@ type EventPayload = {
   screen?: { w: number; h: number };
   tzOffsetMin?: number;
   locale?: string;
+  countryCode?: string;
   properties: TrackProperties;
   element?: {
     tagName?: string;
@@ -54,7 +56,8 @@ type MfGlobal = ((...args: Command) => void) & {
   q?: unknown[];
 };
 
-const STORAGE_KEY = "mf_session_id";
+const SESSION_STORAGE_KEY = "mf_session_id";
+const VISITOR_STORAGE_KEY = "mf_visitor_id";
 const DEFAULT_ENDPOINT = "/api/v1/events";
 
 const state = {
@@ -66,6 +69,8 @@ const state = {
   enablePerfTracking: false,
   initialized: false,
   listenersAttached: false,
+  sessionEnding: false,
+  lastTrackedPageKey: "",
   queue: [] as Array<Omit<EventPayload, "apiKey">>,
   pageLoadTimestamp: typeof Date !== "undefined" ? Date.now() : 0,
 };
@@ -87,17 +92,60 @@ function ensureSessionId() {
   }
 
   try {
-    const existing = window.localStorage.getItem(STORAGE_KEY);
+    const existing = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
 
     if (existing) {
       return existing;
     }
 
     const sessionId = generateSessionId();
-    window.localStorage.setItem(STORAGE_KEY, sessionId);
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    window.sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId);
     return sessionId;
   } catch {
     return generateSessionId();
+  }
+}
+
+function ensureVisitorId() {
+  if (typeof window === "undefined") {
+    return "server-visitor";
+  }
+
+  try {
+    const existing = window.localStorage.getItem(VISITOR_STORAGE_KEY);
+
+    if (existing) {
+      return existing;
+    }
+
+    const visitorId = generateSessionId();
+    window.localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
+    return visitorId;
+  } catch {
+    return generateSessionId();
+  }
+}
+
+function extractCountryCode(locale?: string) {
+  if (!locale) {
+    return undefined;
+  }
+
+  const match = locale.match(/[-_]([A-Za-z]{2})\b/);
+  return match?.[1]?.toUpperCase();
+}
+
+function clearSessionId() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch {
+    // Ignore storage cleanup failures.
   }
 }
 
@@ -106,19 +154,23 @@ function buildPayload(
   properties: TrackProperties = {},
   element?: EventPayload["element"],
 ): Omit<EventPayload, "apiKey"> {
+  const locale =
+    typeof navigator !== "undefined" && navigator.language
+      ? navigator.language
+      : undefined;
+
   const payload: Omit<EventPayload, "apiKey"> = {
     schemaVersion: "1.0",
     scriptId: state.scriptId,
     sessionId: ensureSessionId(),
+    visitorId: ensureVisitorId(),
     eventName,
     timestamp: new Date().toISOString(),
     url: typeof window === "undefined" ? "" : window.location.href,
     userAgent: typeof navigator === "undefined" ? "" : navigator.userAgent,
     tzOffsetMin: new Date().getTimezoneOffset(),
-    locale:
-      typeof navigator !== "undefined" && navigator.language
-        ? navigator.language
-        : undefined,
+    locale,
+    countryCode: extractCountryCode(locale),
     properties,
     element,
   };
@@ -265,7 +317,7 @@ function attachPerformanceTracking() {
 }
 
 function attachSessionTracking() {
-  const handleSessionEnd = () => {
+  const trackSessionEnd = () => {
     const timeSpentMs = Date.now() - state.pageLoadTimestamp;
     track("session_end", { timeSpentMs });
     flushQueue(true);
@@ -273,16 +325,33 @@ function attachSessionTracking() {
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
-      handleSessionEnd();
+      trackSessionEnd();
     }
   });
 
-  window.addEventListener("beforeunload", () => {
-    handleSessionEnd();
-  });
+  const finalizeSession = () => {
+    if (state.sessionEnding) {
+      return;
+    }
+
+    state.sessionEnding = true;
+    trackSessionEnd();
+    clearSessionId();
+  };
+
+  window.addEventListener("pagehide", finalizeSession);
+  window.addEventListener("beforeunload", finalizeSession);
 }
 
 function trackPageView() {
+  const pageKey = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+  if (state.lastTrackedPageKey === pageKey) {
+    return;
+  }
+
+  state.lastTrackedPageKey = pageKey;
+
   const urlParams = new URLSearchParams(window.location.search);
   const properties: TrackProperties = {
     title: document.title,
@@ -345,6 +414,27 @@ function attachAutoTracking() {
     );
   });
 
+  const schedulePageView = () => {
+    window.setTimeout(() => {
+      trackPageView();
+    }, 0);
+  };
+
+  const originalPushState = window.history.pushState.bind(window.history);
+  window.history.pushState = function (...args) {
+    originalPushState(...args);
+    schedulePageView();
+  };
+
+  const originalReplaceState = window.history.replaceState.bind(window.history);
+  window.history.replaceState = function (...args) {
+    originalReplaceState(...args);
+    schedulePageView();
+  };
+
+  window.addEventListener("popstate", schedulePageView);
+  window.addEventListener("hashchange", schedulePageView);
+
   if (state.enableScrollTracking) {
     attachScrollTracking();
   }
@@ -363,11 +453,16 @@ function init(apiKey: string, options: InitOptions = {}) {
   }
 
   state.apiKey = apiKey;
-  state.endpoint = options.endpoint ?? state.endpoint;
+  state.endpoint =
+    options.endpoint ??
+    inferDefaultEndpoint() ??
+    state.endpoint;
   state.scriptId = options.scriptId ?? state.scriptId;
   state.autoTrack = options.autoTrack ?? true;
   state.enableScrollTracking = options.enableScrollTracking ?? false;
   state.enablePerfTracking = options.enablePerfTracking ?? false;
+  state.sessionEnding = false;
+  state.lastTrackedPageKey = "";
   state.initialized = true;
   attachAutoTracking();
   flushQueue();
@@ -513,6 +608,41 @@ function findBootstrapScript() {
   );
 }
 
+function inferEndpointFromScript(script: HTMLScriptElement) {
+  const explicitEndpoint = script.getAttribute("data-mf-endpoint");
+
+  if (explicitEndpoint) {
+    return explicitEndpoint;
+  }
+
+  if (!script.src) {
+    return undefined;
+  }
+
+  try {
+    const scriptUrl = new URL(script.src, window.location.href);
+    return new URL("/api/v1/events", scriptUrl.origin).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function inferDefaultEndpoint() {
+  if (typeof document === "undefined") {
+    return undefined;
+  }
+
+  const script =
+    findBootstrapScript() ??
+    document.querySelector('script[src$="/mf.js"],script[src*="/mf.js?"],script[src$="mf.js"]');
+
+  if (!(script instanceof HTMLScriptElement)) {
+    return undefined;
+  }
+
+  return inferEndpointFromScript(script);
+}
+
 function autoInitFromScriptTag() {
   if (state.initialized) {
     return;
@@ -534,7 +664,7 @@ function autoInitFromScriptTag() {
   }
 
   init(token, {
-    endpoint: script.getAttribute("data-mf-endpoint") ?? undefined,
+    endpoint: inferEndpointFromScript(script),
     scriptId: script.getAttribute("data-mf-script-id") ?? undefined,
     autoTrack: parseBooleanAttribute(
       script.getAttribute("data-mf-auto-track"),

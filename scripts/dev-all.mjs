@@ -87,7 +87,11 @@ try {
 
 const unifiedEnv = parseEnv(unifiedContent);
 const sourceLabel = envSourcePath.replace(`${rootDir}/`, "");
-const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+const userAgent = process.env.npm_config_user_agent ?? "";
+const usesPnpm = userAgent.startsWith("pnpm/");
+const packageManagerCmd = process.platform === "win32"
+  ? usesPnpm ? "pnpm.cmd" : "npm.cmd"
+  : usesPnpm ? "pnpm" : "npm";
 
 const analyzerDir = join(rootDir, "services", "analyzer");
 const analyzerLocalBin = process.platform === "win32"
@@ -96,17 +100,54 @@ const analyzerLocalBin = process.platform === "win32"
 
 const analyzerCmd = existsSync(analyzerLocalBin) ? analyzerLocalBin : "metricflow-analyzer";
 
+const dashboardPort = unifiedEnv.DASHBOARD_PORT || process.env.DASHBOARD_PORT || "8000";
+
+function buildManagedEnv(serviceName) {
+  const serviceEnv = { ...process.env, ...unifiedEnv };
+
+  if (serviceName !== "backend") {
+    delete serviceEnv.PORT;
+  }
+
+  if (serviceName === "dashboard") {
+    serviceEnv.PORT = dashboardPort;
+  }
+
+  return serviceEnv;
+}
+
+function terminateChild(child, signal = "SIGTERM") {
+  if (!child.pid || child.killed) {
+    return;
+  }
+
+  if (process.platform === "win32") {
+    child.kill(signal);
+    return;
+  }
+
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    child.kill(signal);
+  }
+}
+
 const processSpecs = [
   {
     name: "backend",
-    command: npmCmd,
-    args: ["run", "dev:backend"],
+    command: packageManagerCmd,
+    args: usesPnpm
+      ? ["--filter", "@metricflow/backend", "dev"]
+      : ["run", "dev", "--workspace", "@metricflow/backend"],
     cwd: rootDir
   },
   {
     name: "dashboard",
-    command: npmCmd,
-    args: ["run", "dev:dashboard"],
+    command: packageManagerCmd,
+    args: usesPnpm
+      ? ["--filter", "@metricflow/dashboard", "dev"]
+      : ["run", "dev", "--workspace", "@metricflow/dashboard"],
     cwd: rootDir
   },
   {
@@ -128,17 +169,16 @@ function stopAll(signal = "SIGTERM") {
   shuttingDown = true;
 
   for (const child of children) {
-    if (!child.killed) {
-      child.kill(signal);
-    }
+    terminateChild(child, signal);
   }
 }
 
 for (const spec of processSpecs) {
   const child = spawn(spec.command, spec.args, {
     cwd: spec.cwd,
-    env: { ...process.env, ...unifiedEnv },
-    stdio: ["ignore", "pipe", "pipe"]
+    env: buildManagedEnv(spec.name),
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: process.platform !== "win32"
   });
 
   children.push(child);
@@ -172,10 +212,8 @@ console.log(`Started backend, dashboard, and analyzer using ${sourceLabel}`);
 
 process.on("SIGINT", () => {
   stopAll("SIGINT");
-  process.exit(0);
 });
 
 process.on("SIGTERM", () => {
   stopAll("SIGTERM");
-  process.exit(0);
 });

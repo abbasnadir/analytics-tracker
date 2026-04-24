@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
 import { env } from "./config/env.js";
@@ -9,16 +12,55 @@ import { eventsRouter } from "./routes/events.js";
 import { healthRouter } from "./routes/health.js";
 import { metricsRouter } from "./routes/metrics.js";
 
+function parseAllowedOrigins(raw: string) {
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+const sdkBundlePath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../apps/sdk/dist/metricflow.js",
+);
+
 export function createApp() {
   const app = express();
+  const allowedOrigins = parseAllowedOrigins(env.CORS_ORIGIN);
 
   app.use(
     cors({
-      origin: env.CORS_ORIGIN,
+      origin(origin, callback) {
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+
+        if (
+          allowedOrigins.includes("*") ||
+          allowedOrigins.includes(origin)
+        ) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error(`Origin ${origin} is not allowed by CORS`));
+      },
     }),
   );
   app.use(attachRequestContext);
   app.use(express.json({ limit: env.JSON_BODY_LIMIT }));
+
+  app.get("/mf.js", (_request, response) => {
+    if (!existsSync(sdkBundlePath)) {
+      response.status(503).type("text/plain").send(
+        "MetricFlow SDK bundle not found. Run `npm run build:sdk` first.",
+      );
+      return;
+    }
+
+    response.sendFile(sdkBundlePath);
+  });
 
   app.use("/health", healthRouter);
   app.use("/api/v1/events", eventsRouter);

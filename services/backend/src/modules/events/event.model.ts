@@ -17,10 +17,11 @@ const eventSchema = new Schema<EventDocument>(
     schemaVersion: { type: String, required: true, default: "1.0" },
     scriptId: { type: String, required: true, default: "default" },
     sessionId: { type: String, required: true, index: true },
+    visitorId: { type: String, required: false, index: true },
     eventId: { type: String, required: true },
     eventName: { type: String, required: true, index: true },
     timestamp: { type: String, required: true, index: true },
-    receivedAt: { type: String, required: true, index: true },
+    receivedAt: { type: String, required: true },
     ingestedAt: { type: String, required: true },
     url: { type: String, required: true },
     path: { type: String, required: false },
@@ -36,6 +37,7 @@ const eventSchema = new Schema<EventDocument>(
     },
     tzOffsetMin: Number,
     locale: String,
+    countryCode: String,
     properties: { type: Schema.Types.Mixed, default: {} },
     element: {
       tagName: String,
@@ -54,6 +56,7 @@ const eventSchema = new Schema<EventDocument>(
 
 eventSchema.index({ tenantId: 1, timestamp: 1 });
 eventSchema.index({ tenantId: 1, sessionId: 1, timestamp: 1 });
+eventSchema.index({ tenantId: 1, visitorId: 1, timestamp: 1 });
 eventSchema.index({ tenantId: 1, eventName: 1, timestamp: 1 });
 eventSchema.index({ tenantId: 1, eventId: 1 }, { unique: true });
 eventSchema.index(

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { ApiFilters } from "@/services/api";
 
 interface EventTypeOption {
@@ -9,11 +9,9 @@ interface EventTypeOption {
 }
 
 const EVENT_TYPE_OPTIONS: EventTypeOption[] = [
-  { value: "",          label: "All Events"   },
-  { value: "pageview",  label: "Page Views"   },
-  { value: "click",     label: "Clicks"       },
-  { value: "session",   label: "Sessions"     },
-  { value: "conversion",label: "Conversions"  },
+  { value: "",          label: "All Events" },
+  { value: "page_view", label: "Page Views" },
+  { value: "click",     label: "Clicks" },
 ];
 
 const DATE_PRESETS = [
@@ -31,6 +29,13 @@ function daysAgo(n: number): string {
 
 function today(): string {
   return new Date().toISOString().split("T")[0];
+}
+
+export function buildDefaultFilters(): ApiFilters {
+  return {
+    from: daysAgo(7),
+    to: today(),
+  };
 }
 
 interface FilterBarProps {
@@ -61,6 +66,12 @@ export default function FilterBar({ onFiltersChange, isLoading }: FilterBarProps
     },
     [onFiltersChange]
   );
+
+  useEffect(() => {
+    emit(from, to, eventType);
+    // Initial sync so parent state matches visible defaults.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function applyPreset(preset: (typeof DATE_PRESETS)[0]) {
     const f = preset.from();

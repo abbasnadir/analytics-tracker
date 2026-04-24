@@ -8,6 +8,7 @@ interface MetricCardProps {
   metric: OverviewMetric;
   icon: React.ReactNode;
   isLoading?: boolean;
+  valueFormatter?: (value: number) => string;
 }
 
 /**
@@ -16,7 +17,12 @@ interface MetricCardProps {
  * Displays a single KPI: label, value, and period-over-period delta.
  * Accepts any OverviewMetric — not tied to specific metric names.
  */
-export default function MetricCard({ metric, icon, isLoading }: MetricCardProps) {
+export default function MetricCard({
+  metric,
+  icon,
+  isLoading,
+  valueFormatter = formatNumber,
+}: MetricCardProps) {
   if (isLoading) {
     return (
       <div className="metric-card metric-card--skeleton" aria-busy="true">
@@ -30,6 +36,7 @@ export default function MetricCard({ metric, icon, isLoading }: MetricCardProps)
 
   const isPositive = metric.trend === "up";
   const isNegative = metric.trend === "down";
+  const hasDelta = typeof metric.delta === "number";
 
   return (
     <div className="metric-card" role="region" aria-label={metric.label}>
@@ -39,20 +46,24 @@ export default function MetricCard({ metric, icon, isLoading }: MetricCardProps)
       </div>
 
       <div className="metric-card__value" aria-live="polite">
-        {formatNumber(metric.value)}
+        {valueFormatter(metric.value)}
       </div>
 
-      <div
-        className={`metric-card__delta ${
-          isPositive ? "metric-card__delta--up" : isNegative ? "metric-card__delta--down" : ""
-        }`}
-      >
-        <span className="metric-card__delta-arrow">
-          {isPositive ? "▲" : isNegative ? "▼" : "—"}
-        </span>
-        <span>{formatDelta(metric.delta)}</span>
-        <span className="metric-card__delta-label">vs last period</span>
-      </div>
+      {hasDelta ? (
+        <div
+          className={`metric-card__delta ${
+            isPositive ? "metric-card__delta--up" : isNegative ? "metric-card__delta--down" : ""
+          }`}
+        >
+          <span className="metric-card__delta-arrow">
+            {isPositive ? "▲" : isNegative ? "▼" : "—"}
+          </span>
+          <span>{formatDelta(metric.delta ?? 0)}</span>
+          <span className="metric-card__delta-label">vs last period</span>
+        </div>
+      ) : (
+        <div className="metric-card__context">{metric.contextLabel ?? "Live backend metric"}</div>
+      )}
 
       {/* Subtle animated accent bar */}
       <div

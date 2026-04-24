@@ -459,13 +459,48 @@ input, select { font-family: inherit; }
 }
 
 .dashboard__filters {
-  position: sticky;
-  top: var(--navbar-h);
-  z-index: 40;
-  background: var(--color-bg);
-  padding: 12px 0;
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: 4px;
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard__filters-card {
+  background:
+    linear-gradient(135deg, rgba(56, 189, 248, 0.10), rgba(26, 35, 64, 0.96)),
+    rgba(26, 35, 64, 0.92);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: 18px;
+  padding: 18px 20px;
+}
+
+.dashboard__filters-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.dashboard__filters-eyebrow {
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.dashboard__filters-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.dashboard__filters-copy {
+  color: var(--color-text-muted);
+  max-width: 52ch;
 }
 
 .dashboard__metrics {
@@ -547,6 +582,114 @@ input, select { font-family: inherit; }
   padding-left: 18px;
 }
 
+.empty-state {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  color: var(--color-text-muted);
+  text-align: left;
+}
+
+.empty-state--compact {
+  min-height: 180px;
+}
+
+.empty-state__title {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+.empty-state__text {
+  max-width: 58ch;
+  line-height: 1.7;
+}
+
+.insight-list {
+  display: grid;
+  gap: 10px;
+}
+
+.insight-list__item {
+  align-items: center;
+  background: var(--color-surface-2);
+  border: 1px solid rgba(100, 180, 255, 0.08);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 14px 16px;
+}
+
+.insight-list__item--stack {
+  align-items: flex-start;
+}
+
+.insight-list__content {
+  min-width: 0;
+}
+
+.insight-list__label {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.insight-list__note {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 3px;
+}
+
+.insight-list__value,
+.insight-list__meta {
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.status-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.status-card {
+  background: var(--color-surface-2);
+  border: 1px solid rgba(100, 180, 255, 0.08);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  min-height: 150px;
+  padding: 16px;
+}
+
+.status-card__label {
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-card__value {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.status-card__note {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
 /* ─── Metric Card ───────────────────────────────────────────── */
 .metric-card {
   background: var(--color-surface);
@@ -612,6 +755,12 @@ input, select { font-family: inherit; }
   margin-left: 2px;
   color: var(--color-text-muted);
   font-size: 11px;
+}
+
+.metric-card__context {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  min-height: 19px;
 }
 
 .metric-card__bar {
@@ -834,6 +983,7 @@ input, select { font-family: inherit; }
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-width: 132px;
 }
 
 .filter-bar__label {
@@ -848,6 +998,7 @@ input, select { font-family: inherit; }
 .filter-bar__presets {
   display: flex;
   gap: 4px;
+  flex-wrap: wrap;
 }
 
 .filter-bar__preset {
@@ -1909,6 +2060,7 @@ input, select { font-family: inherit; }
 @media (max-width: 1100px) {
   .dashboard__charts-row--split { grid-template-columns: 1fr; }
   .profile__row { grid-template-columns: 1fr; }
+  .status-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 900px) {
@@ -1944,6 +2096,8 @@ input, select { font-family: inherit; }
   .app-shell__main { margin-left: 0; }
   .sidebar { display: none; }
   .filter-bar { flex-direction: column; align-items: stretch; }
+  .dashboard__filters-card { padding: 16px; }
+  .dashboard__filters-title { font-size: 20px; }
   .dashboard__charts-row--full,
   .dashboard__charts-row--split { grid-template-columns: 1fr; }
 

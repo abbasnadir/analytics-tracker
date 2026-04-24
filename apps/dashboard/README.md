@@ -16,7 +16,7 @@ Custom Hooks  (useOverviewMetrics, useTopPages, useClickMetrics, useTrends)
 API Service   (/services/api.ts)
     │  (single abstraction layer — only place fetch() is called)
     ▼
-Backend REST API  (/api/metrics/*)
+Backend REST API  (/api/v1/metrics/*)
 ```
 
 **This flow is enforced and must not be violated.**  
@@ -38,13 +38,6 @@ metricflow-dashboard/
 │   │   ├── layout.tsx              # Sidebar + Navbar shell
 │   │   └── page.tsx                # Dashboard page (orchestration)
 │   │
-│   └── api/                        # Next.js mock routes (dev only)
-│       └── metrics/
-│           ├── overview/route.ts
-│           ├── top-pages/route.ts
-│           ├── clicks/route.ts
-│           └── trends/route.ts
-│
 ├── components/
 │   ├── MetricCard.tsx              # KPI card (value + delta)
 │   ├── ChartWrapper.tsx            # Generic chart container
@@ -97,7 +90,7 @@ npm run dev
 # Open http://localhost:3000
 ```
 
-The mock API routes (`/app/api/metrics/*`) serve realistic data automatically in development. No backend required to test the dashboard.
+Dashboard now expects live backend access. Login validates API key against backend before loading analytics routes.
 
 ---
 
@@ -106,11 +99,9 @@ The mock API routes (`/app/api/metrics/*`) serve realistic data automatically in
 1. Set `NEXT_PUBLIC_API_BASE_URL` in `.env.local` to your Node.js backend URL  
    e.g. `NEXT_PUBLIC_API_BASE_URL=https://api.metricflow.io/api`
 
-2. The `next.config.js` rewrite rule proxies all `/api/*` requests to the backend — **no CORS issues**, no code changes required.
+2. The `next.config.js` rewrite rule proxies `/api/v1/*` requests to backend — **no CORS issues**, no component code changes required.
 
-3. Remove or gate the mock routes in `/app/api/` for production.
-
-That's it. The entire integration surface is `/services/api.ts`.
+That is whole integration surface: `/services/api.ts`.
 
 ---
 

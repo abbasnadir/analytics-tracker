@@ -15,6 +15,7 @@ type OverviewResponse = {
   totalPageViews: number;
   totalClicks: number;
   uniqueSessions: number;
+  uniqueVisitors: number;
   avgSessionDurationSec: number;
   bounceRate: number;
   topPages: Array<{ key: string; count: number }>;
@@ -39,11 +40,11 @@ type TimeseriesPoint = {
   sessions: number;
 };
 
-function rank(items: Record<string, number>) {
+function rank(items: Record<string, number>, limit = 5) {
   return Object.entries(items)
     .map(([key, count]) => ({ key, count }))
     .sort((left, right) => right.count - left.count)
-    .slice(0, 5);
+    .slice(0, limit);
 }
 
 function buildSessionMetrics(
@@ -166,6 +167,45 @@ function buildTimeseries(
   );
 }
 
+function normalizeCountryCode(countryCode?: string, locale?: string) {
+  if (countryCode && /^[A-Za-z]{2}$/.test(countryCode)) {
+    return countryCode.toUpperCase();
+  }
+
+  if (!locale) {
+    return null;
+  }
+
+  const match = locale.match(/[-_]([A-Za-z]{2})\b/);
+  const region = match?.[1];
+
+  if (!region) {
+    return null;
+  }
+
+  return region.toUpperCase();
+}
+
+function resolveVisitorId(event: { visitorId?: string; sessionId: string }) {
+  return event.visitorId || event.sessionId;
+}
+
+async function getLatestSummary(tenantId: string) {
+  return MetricSummaryModel.findOne({ tenantId }).sort({ generatedAt: -1 }).lean();
+}
+
+function inferInterval(points: TimeseriesPoint[]): "hour" | "day" {
+  if (points.length < 2) {
+    return "hour";
+  }
+
+  const first = new Date(points[0].ts).getTime();
+  const second = new Date(points[1].ts).getTime();
+  const hours = Math.round(Math.abs(second - first) / 3_600_000);
+
+  return hours >= 24 ? "day" : "hour";
+}
+
 export async function ingestEvent(tenantId: string, payload: EventPayload) {
   const now = new Date().toISOString();
 
@@ -248,7 +288,7 @@ export async function getEventsForAnalysis(
     .sort({ timestamp: 1 })
     .limit(env.MAX_ANALYZER_EVENTS)
     .select(
-      "schemaVersion apiKey scriptId sessionId eventId eventName timestamp url path referrer userAgent viewport screen tzOffsetMin locale properties element receivedAt ingestedAt -_id",
+      "schemaVersion apiKey scriptId sessionId visitorId eventId eventName timestamp url path referrer userAgent viewport screen tzOffsetMin locale countryCode properties element receivedAt ingestedAt -_id",
     )
     .lean();
 }
@@ -277,9 +317,7 @@ export async function saveMetricSummary(
 }
 
 export async function getOverview(tenantId: string): Promise<OverviewResponse> {
-  const latestSummary = await MetricSummaryModel.findOne({ tenantId })
-    .sort({ generatedAt: -1 })
-    .lean();
+  const latestSummary = await getLatestSummary(tenantId);
 
   if (latestSummary) {
     return {
@@ -287,6 +325,7 @@ export async function getOverview(tenantId: string): Promise<OverviewResponse> {
       totalPageViews: latestSummary.totalPageViews,
       totalClicks: latestSummary.totalClicks,
       uniqueSessions: latestSummary.uniqueSessions ?? 0,
+      uniqueVisitors: latestSummary.uniqueVisitors ?? latestSummary.uniqueSessions ?? 0,
       avgSessionDurationSec: latestSummary.avgSessionDurationSec ?? 0,
       bounceRate: latestSummary.bounceRate ?? 0,
       topPages: latestSummary.topPages,
@@ -301,9 +340,11 @@ export async function getOverview(tenantId: string): Promise<OverviewResponse> {
   let totalPageViews = 0;
   let totalClicks = 0;
   const sessionIds = new Set<string>();
+  const visitorIds = new Set<string>();
 
   for (const event of events) {
     sessionIds.add(event.sessionId);
+    visitorIds.add(resolveVisitorId(event));
 
     if (event.eventName === "page_view") {
       totalPageViews += 1;
@@ -326,6 +367,7 @@ export async function getOverview(tenantId: string): Promise<OverviewResponse> {
     totalPageViews,
     totalClicks,
     uniqueSessions: sessionIds.size,
+    uniqueVisitors: visitorIds.size,
     avgSessionDurationSec: 0,
     bounceRate: 0,
     topPages: rank(topPages),
@@ -339,6 +381,27 @@ export async function getOverviewForRange(
   start: string,
   end: string,
 ): Promise<OverviewResponse> {
+  const summary = await MetricSummaryModel.findOne({
+    tenantId,
+    rangeStart: start,
+    rangeEnd: end,
+  }).lean();
+
+  if (summary) {
+    return {
+      tenantId,
+      totalPageViews: summary.totalPageViews,
+      totalClicks: summary.totalClicks,
+      uniqueSessions: summary.uniqueSessions ?? 0,
+      uniqueVisitors: summary.uniqueVisitors ?? summary.uniqueSessions ?? 0,
+      avgSessionDurationSec: summary.avgSessionDurationSec ?? 0,
+      bounceRate: summary.bounceRate ?? 0,
+      topPages: summary.topPages,
+      topElements: summary.topElements,
+      generatedAt: summary.generatedAt,
+    };
+  }
+
   const events = await EventModel.find({
     tenantId,
     timestamp: {
@@ -352,9 +415,11 @@ export async function getOverviewForRange(
   let totalPageViews = 0;
   let totalClicks = 0;
   const sessionIds = new Set<string>();
+  const visitorIds = new Set<string>();
 
   for (const event of events) {
     sessionIds.add(event.sessionId);
+    visitorIds.add(resolveVisitorId(event));
 
     if (event.eventName === "page_view") {
       totalPageViews += 1;
@@ -404,6 +469,7 @@ export async function getOverviewForRange(
     totalPageViews,
     totalClicks,
     uniqueSessions: sessionIds.size,
+    uniqueVisitors: visitorIds.size,
     avgSessionDurationSec,
     bounceRate,
     topPages: rank(topPages),
@@ -414,10 +480,16 @@ export async function getOverviewForRange(
 
 export async function getRankedPages(
   tenantId: string,
-  start: string,
-  end: string,
+  start?: string,
+  end?: string,
   limit = 5,
 ) {
+  if (!start || !end) {
+    const summary = await getLatestSummary(tenantId);
+
+    return (summary?.topPages ?? []).slice(0, limit);
+  }
+
   const rows = await EventModel.aggregate<
     Array<{ key: string; count: number }>
   >([
@@ -450,10 +522,16 @@ export async function getRankedPages(
 
 export async function getRankedElements(
   tenantId: string,
-  start: string,
-  end: string,
+  start?: string,
+  end?: string,
   limit = 5,
 ) {
+  if (!start || !end) {
+    const summary = await getLatestSummary(tenantId);
+
+    return (summary?.topElements ?? []).slice(0, limit);
+  }
+
   const events = await EventModel.find({
     tenantId,
     eventName: "click",
@@ -477,6 +555,65 @@ export async function getRankedElements(
     .map(([key, count]) => ({ key, count }))
     .sort((left, right) => right.count - left.count)
     .slice(0, limit);
+}
+
+export async function getGeoMetrics(
+  tenantId: string,
+  start?: string,
+  end?: string,
+  limit = 10,
+) {
+  if (!start || !end) {
+    const summary = await getLatestSummary(tenantId);
+
+    return {
+      tenantId,
+      rangeStart: start,
+      rangeEnd: end,
+      items: (summary?.geoBreakdown ?? []).slice(0, limit),
+      totalUniqueVisitors: summary?.uniqueVisitors ?? summary?.uniqueSessions ?? 0,
+      generatedAt: summary?.generatedAt ?? new Date().toISOString(),
+    };
+  }
+
+  const events = await EventModel.find({
+    tenantId,
+    timestamp: { $gte: start, $lte: end },
+  })
+    .select("locale countryCode visitorId sessionId -_id")
+    .lean();
+
+  const geoCounter = new Map<string, Set<string>>();
+  const uniqueVisitors = new Set<string>();
+
+  for (const event of events) {
+    const countryCode = normalizeCountryCode(event.countryCode, event.locale);
+    const visitorId = resolveVisitorId(event);
+
+    uniqueVisitors.add(visitorId);
+
+    if (!countryCode) {
+      continue;
+    }
+
+    const visitors = geoCounter.get(countryCode) ?? new Set<string>();
+    visitors.add(visitorId);
+    geoCounter.set(countryCode, visitors);
+  }
+
+  const items = Array.from(geoCounter.entries())
+    .map(([key, visitors]) => ({ key, count: visitors.size }))
+    .sort((left, right) => right.count - left.count)
+    .slice(0, limit);
+
+  return {
+    tenantId,
+    rangeStart: start,
+    rangeEnd: end,
+    items,
+    totalUniqueVisitors: uniqueVisitors.size,
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 export async function getSessionMetrics(
@@ -525,6 +662,20 @@ export async function getSessionMetrics(
 }
 
 export async function getTimeseries(tenantId: string, query: TimeseriesQuery) {
+  if (!query.start || !query.end || !query.interval) {
+    const summary = await getLatestSummary(tenantId);
+    const points = summary?.timeseries ?? [];
+
+    return {
+      tenantId,
+      interval: inferInterval(points),
+      rangeStart: summary?.rangeStart,
+      rangeEnd: summary?.rangeEnd,
+      points,
+      generatedAt: summary?.generatedAt ?? new Date().toISOString(),
+    };
+  }
+
   const match: {
     tenantId: string;
     timestamp: { $gte: string; $lte: string };

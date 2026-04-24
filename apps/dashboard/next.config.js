@@ -1,4 +1,16 @@
 /** @type {import('next').NextConfig} */
+function resolveBackendApiBase() {
+  const configured =
+    process.env.NEXT_PUBLIC_API_BASE_URL || process.env.METRICFLOW_API_URL;
+
+  if (!configured) {
+    return "http://localhost:4000/api/v1";
+  }
+
+  const trimmed = configured.replace(/\/$/, "");
+  return trimmed.endsWith("/api/v1") ? trimmed : `${trimmed}/api/v1`;
+}
+
 const nextConfig = {
   /**
    * Environment variable validation at build time.
@@ -16,7 +28,7 @@ const nextConfig = {
    * Change NEXT_PUBLIC_API_BASE_URL in .env.local; no code changes needed.
    */
   async rewrites() {
-    const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api/v1";
+    const backendUrl = resolveBackendApiBase();
     return [
       {
         source: "/api/v1/:path*",

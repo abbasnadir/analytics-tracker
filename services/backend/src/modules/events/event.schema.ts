@@ -14,6 +14,7 @@ export const eventPayloadSchema = z.object({
   apiKey: z.string().min(1),
   scriptId: z.string().default("default"),
   sessionId: z.string().min(1),
+  visitorId: z.string().min(1).optional(),
   eventId: z.string().uuid().optional(),
   eventName: z.string().min(1),
   timestamp: z.string().datetime({ offset: true }),
@@ -35,6 +36,7 @@ export const eventPayloadSchema = z.object({
     .optional(),
   tzOffsetMin: z.number().int().optional(),
   locale: z.string().optional(),
+  countryCode: z.string().length(2).optional(),
   properties: z.record(z.unknown()).default({}),
   element: elementSchema.optional(),
 });
@@ -45,18 +47,34 @@ export const eventBatchPayloadSchema = z.object({
   events: z.array(eventPayloadSchema).min(1).max(50),
 });
 
-export const metricRangeQuerySchema = z.object({
-  start: z.string().datetime({ offset: true }),
-  end: z.string().datetime({ offset: true }),
-  limit: z.coerce.number().int().positive().max(100).default(5),
-});
+export const metricRangeQuerySchema = z
+  .object({
+    start: z.string().datetime({ offset: true }).optional(),
+    end: z.string().datetime({ offset: true }).optional(),
+    limit: z.coerce.number().int().positive().max(100).default(5),
+  })
+  .refine(
+    (value) => (value.start && value.end) || (!value.start && !value.end),
+    {
+      message: "start and end must be provided together",
+    },
+  );
 
-export const timeseriesQuerySchema = z.object({
-  start: z.string().datetime({ offset: true }),
-  end: z.string().datetime({ offset: true }),
-  interval: z.enum(["hour", "day"]),
-  eventName: z.string().optional(),
-});
+export const timeseriesQuerySchema = z
+  .object({
+    start: z.string().datetime({ offset: true }).optional(),
+    end: z.string().datetime({ offset: true }).optional(),
+    interval: z.enum(["hour", "day"]).optional(),
+    eventName: z.string().optional(),
+  })
+  .refine(
+    (value) =>
+      (!value.start && !value.end && !value.interval) ||
+      (Boolean(value.start) && Boolean(value.end) && Boolean(value.interval)),
+    {
+      message: "start, end, and interval must be provided together",
+    },
+  );
 
 export const overviewRangeQuerySchema = z
   .object({

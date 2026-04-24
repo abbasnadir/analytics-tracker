@@ -34,7 +34,9 @@ const CustomTooltip = ({ active, payload }: any) => {
       <div className="chart-tooltip__row">
         <span className="chart-tooltip__dot" style={{ background: "#f59e0b" }} />
         <span className="chart-tooltip__name">Avg. Duration</span>
-        <span className="chart-tooltip__value">{formatDuration(d.avgDuration)}</span>
+        <span className="chart-tooltip__value">
+          {typeof d.avgDuration === "number" ? formatDuration(d.avgDuration) : "—"}
+        </span>
       </div>
     </div>
   );

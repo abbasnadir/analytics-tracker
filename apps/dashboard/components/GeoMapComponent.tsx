@@ -23,6 +23,11 @@ export default function GeoMapComponent({ data }: GeoMapComponentProps) {
     return Math.max(...data.map((d) => d.value), 1);
   }, [data]);
 
+  const byName = useMemo(
+    () => new Map(data.map((item) => [item.name, item])),
+    [data],
+  );
+
   // Color scale from a dark muted blue to the theme's bright primary blue
   const colorScale = scaleLinear<string>()
     .domain([0, maxVal])
@@ -39,28 +44,27 @@ export default function GeoMapComponent({ data }: GeoMapComponentProps) {
         <Geographies geography={geoUrl}>
           {({ geographies }) =>
             geographies.map((geo) => {
-              // Match using the country name
-              const d = data.find((s) => s.id === geo.properties.name);
+              const d = byName.get(geo.properties.name);
               return (
                 <Geography
                   key={geo.rsmKey}
                   geography={geo}
-                  fill={d ? colorScale(d.value) : "var(--color-bg-elevated)"}
+                  fill={d ? colorScale(d.value) : "var(--color-surface-3)"}
                   stroke="rgba(255,255,255,0.05)"
                   strokeWidth={0.5}
                   style={{
                     default: { outline: "none" },
-                    hover: { 
-                      fill: "var(--color-accent-warning)", 
+                    hover: {
+                      fill: d ? "#7dd3fc" : "var(--color-surface-2)",
                       outline: "none",
-                      cursor: "pointer" 
+                      cursor: "pointer"
                     },
                     pressed: { outline: "none" },
                   }}
                 >
                   <title>
                     {geo.properties.name}
-                    {d ? `: ${formatNumber(d.value)} users` : ""}
+                    {d ? `: ${formatNumber(d.value)} unique visitors` : ""}
                   </title>
                 </Geography>
               );

@@ -12,10 +12,12 @@ type MetricSummaryDocument = {
   totalPageViews: number;
   totalClicks: number;
   uniqueSessions: number;
+  uniqueVisitors: number;
   avgSessionDurationSec: number;
   bounceRate: number;
   topPages: RankedMetric[];
   topElements: RankedMetric[];
+  geoBreakdown: RankedMetric[];
   timeseries: Array<{
     ts: string;
     pageViews: number;
@@ -43,10 +45,12 @@ const metricSummarySchema = new Schema<MetricSummaryDocument>(
     totalPageViews: { type: Number, required: true },
     totalClicks: { type: Number, required: true },
     uniqueSessions: { type: Number, required: true, default: 0 },
+    uniqueVisitors: { type: Number, required: true, default: 0 },
     avgSessionDurationSec: { type: Number, required: true, default: 0 },
     bounceRate: { type: Number, required: true, default: 0 },
     topPages: { type: [rankedMetricSchema], default: [] },
     topElements: { type: [rankedMetricSchema], default: [] },
+    geoBreakdown: { type: [rankedMetricSchema], default: [] },
     timeseries: {
       type: [
         {

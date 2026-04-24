@@ -425,6 +425,9 @@ components:
           type: string
         sessionId:
           type: string
+        visitorId:
+          type: string
+          description: Stable browser visitor identifier emitted by SDK telemetry.
         eventId:
           type: string
           format: uuid
@@ -472,6 +475,10 @@ components:
           type: integer
         locale:
           type: string
+        countryCode:
+          type: string
+          minLength: 2
+          maxLength: 2
         properties:
           type: object
           additionalProperties: true
@@ -599,6 +606,9 @@ components:
         uniqueSessions:
           type: integer
           minimum: 0
+        uniqueVisitors:
+          type: integer
+          minimum: 0
         avgSessionDurationSec:
           type: number
           minimum: 0
@@ -651,6 +661,9 @@ components:
         totalClicks:
           type: integer
         uniqueSessions:
+          type: integer
+          minimum: 0
+        uniqueVisitors:
           type: integer
           minimum: 0
         avgSessionDurationSec:
@@ -709,6 +722,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RankedMetric"
+        totalUniqueVisitors:
+          type: integer
+          minimum: 0
         generatedAt:
           type: string
           format: date-time
@@ -839,6 +855,8 @@ components:
           type: string
         sessionId:
           type: string
+        visitorId:
+          type: string
         eventId:
           type: string
         eventName:
@@ -856,6 +874,12 @@ components:
           type: string
         userAgent:
           type: string
+        locale:
+          type: string
+        countryCode:
+          type: string
+          minLength: 2
+          maxLength: 2
         properties:
           type: object
           additionalProperties: true
@@ -909,6 +933,7 @@ x-mongodb:
       indexes:
         - keys: { tenantId: 1, timestamp: 1 }
         - keys: { tenantId: 1, sessionId: 1, timestamp: 1 }
+        - keys: { tenantId: 1, visitorId: 1, timestamp: 1 }
         - keys: { tenantId: 1, eventName: 1, timestamp: 1 }
         - keys: { tenantId: 1, eventId: 1 }
           unique: true
