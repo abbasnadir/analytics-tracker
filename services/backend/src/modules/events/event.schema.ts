@@ -35,6 +35,7 @@ export const eventPayloadSchema = z.object({
     })
     .optional(),
   tzOffsetMin: z.number().int().optional(),
+  timeZone: z.string().min(1).optional(),
   locale: z.string().optional(),
   countryCode: z.string().length(2).optional(),
   properties: z.record(z.unknown()).default({}),

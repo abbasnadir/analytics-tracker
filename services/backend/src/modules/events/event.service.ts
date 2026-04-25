@@ -205,6 +205,7 @@ export async function ingestEvent(
     countryCode: resolveCountryCode(
       context.countryCode ?? payload.countryCode,
       payload.locale,
+      payload.timeZone,
     ),
     path:
       payload.path ??
@@ -234,6 +235,7 @@ export async function ingestBatch(
     countryCode: resolveCountryCode(
       context.countryCode ?? event.countryCode,
       event.locale,
+      event.timeZone,
     ),
     path:
       event.path ??
@@ -287,7 +289,7 @@ export async function getEventsForAnalysis(
     .sort({ timestamp: 1 })
     .limit(env.MAX_ANALYZER_EVENTS)
     .select(
-      "schemaVersion apiKey scriptId sessionId visitorId eventId eventName timestamp url path referrer userAgent viewport screen tzOffsetMin locale countryCode properties element receivedAt ingestedAt -_id",
+      "schemaVersion apiKey scriptId sessionId visitorId eventId eventName timestamp url path referrer userAgent viewport screen tzOffsetMin timeZone locale countryCode properties element receivedAt ingestedAt -_id",
     )
     .lean();
 }
@@ -579,14 +581,19 @@ export async function getGeoMetrics(
     tenantId,
     timestamp: { $gte: start, $lte: end },
   })
-    .select("locale countryCode visitorId sessionId -_id")
+    .select("timestamp locale countryCode timeZone visitorId sessionId -_id")
+    .sort({ timestamp: 1 })
     .lean();
 
-  const geoCounter = new Map<string, Set<string>>();
+  const latestCountryByVisitor = new Map<string, string>();
   const uniqueVisitors = new Set<string>();
 
   for (const event of events) {
-    const countryCode = resolveCountryCode(event.countryCode, event.locale);
+    const countryCode = resolveCountryCode(
+      event.countryCode,
+      event.locale,
+      event.timeZone,
+    );
     const visitorId = resolveVisitorId(event);
 
     uniqueVisitors.add(visitorId);
@@ -595,13 +602,17 @@ export async function getGeoMetrics(
       continue;
     }
 
-    const visitors = geoCounter.get(countryCode) ?? new Set<string>();
-    visitors.add(visitorId);
-    geoCounter.set(countryCode, visitors);
+    latestCountryByVisitor.set(visitorId, countryCode);
   }
 
-  const items = Array.from(geoCounter.entries())
-    .map(([key, visitors]) => ({ key, count: visitors.size }))
+  const countryCounts = new Map<string, number>();
+
+  for (const countryCode of latestCountryByVisitor.values()) {
+    countryCounts.set(countryCode, (countryCounts.get(countryCode) ?? 0) + 1);
+  }
+
+  const items = Array.from(countryCounts.entries())
+    .map(([key, count]) => ({ key, count }))
     .sort((left, right) => right.count - left.count)
     .slice(0, limit);
 

@@ -31,6 +31,7 @@ type EventPayload = {
   viewport?: { w: number; h: number };
   screen?: { w: number; h: number };
   tzOffsetMin?: number;
+  timeZone?: string;
   locale?: string;
   countryCode?: string;
   properties: TrackProperties;
@@ -127,7 +128,38 @@ function ensureVisitorId() {
   }
 }
 
-function extractCountryCode(locale?: string) {
+const TIME_ZONE_TO_COUNTRY_CODE: Record<string, string> = {
+  "Asia/Calcutta": "IN",
+  "Asia/Dubai": "AE",
+  "Asia/Hong_Kong": "HK",
+  "Asia/Kolkata": "IN",
+  "Asia/Seoul": "KR",
+  "Asia/Singapore": "SG",
+  "Asia/Tokyo": "JP",
+  "Australia/Melbourne": "AU",
+  "Australia/Perth": "AU",
+  "Australia/Sydney": "AU",
+  "Europe/Berlin": "DE",
+  "Europe/London": "GB",
+  "Europe/Paris": "FR",
+  "Pacific/Auckland": "NZ",
+};
+
+function inferCountryCodeFromTimeZone(timeZone?: string) {
+  if (!timeZone) {
+    return undefined;
+  }
+
+  return TIME_ZONE_TO_COUNTRY_CODE[timeZone];
+}
+
+function extractCountryCode(locale?: string, timeZone?: string) {
+  const countryCodeFromTimeZone = inferCountryCodeFromTimeZone(timeZone);
+
+  if (countryCodeFromTimeZone) {
+    return countryCodeFromTimeZone;
+  }
+
   if (!locale) {
     return undefined;
   }
@@ -154,6 +186,10 @@ function buildPayload(
   properties: TrackProperties = {},
   element?: EventPayload["element"],
 ): Omit<EventPayload, "apiKey"> {
+  const timeZone =
+    typeof Intl !== "undefined"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : undefined;
   const locale =
     typeof navigator !== "undefined" && navigator.language
       ? navigator.language
@@ -169,8 +205,9 @@ function buildPayload(
     url: typeof window === "undefined" ? "" : window.location.href,
     userAgent: typeof navigator === "undefined" ? "" : navigator.userAgent,
     tzOffsetMin: new Date().getTimezoneOffset(),
+    timeZone,
     locale,
-    countryCode: extractCountryCode(locale),
+    countryCode: extractCountryCode(locale, timeZone),
     properties,
     element,
   };

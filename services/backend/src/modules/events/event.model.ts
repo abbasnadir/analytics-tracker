@@ -36,6 +36,7 @@ const eventSchema = new Schema<EventDocument>(
       h: Number,
     },
     tzOffsetMin: Number,
+    timeZone: String,
     locale: String,
     countryCode: String,
     properties: { type: Schema.Types.Mixed, default: {} },

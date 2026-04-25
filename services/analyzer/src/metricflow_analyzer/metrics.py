@@ -43,6 +43,28 @@ def _country_code_from_event(event: dict[str, Any]) -> str | None:
     if isinstance(country_code, str) and len(country_code) == 2:
         return country_code.upper()
 
+    time_zone = event.get("timeZone")
+    if isinstance(time_zone, str):
+        time_zone_to_country_code = {
+            "Asia/Calcutta": "IN",
+            "Asia/Dubai": "AE",
+            "Asia/Hong_Kong": "HK",
+            "Asia/Kolkata": "IN",
+            "Asia/Seoul": "KR",
+            "Asia/Singapore": "SG",
+            "Asia/Tokyo": "JP",
+            "Australia/Melbourne": "AU",
+            "Australia/Perth": "AU",
+            "Australia/Sydney": "AU",
+            "Europe/Berlin": "DE",
+            "Europe/London": "GB",
+            "Europe/Paris": "FR",
+            "Pacific/Auckland": "NZ",
+        }
+        inferred_country = time_zone_to_country_code.get(time_zone)
+        if inferred_country:
+            return inferred_country
+
     locale = event.get("locale")
     if not isinstance(locale, str):
         return None
@@ -76,7 +98,7 @@ def build_summary(tenant_id: str, events: list[dict[str, Any]], range_start: dat
     browser_counter: Counter[str] = Counter()
     os_counter: Counter[str] = Counter()
     device_counter: Counter[str] = Counter()
-    geo_visitors: dict[str, set[str]] = defaultdict(set)
+    latest_country_by_visitor: dict[str, str] = {}
 
     total_page_views = 0
     total_clicks = 0
@@ -124,7 +146,7 @@ def build_summary(tenant_id: str, events: list[dict[str, Any]], range_start: dat
 
         country_code = _country_code_from_event(event)
         if country_code:
-            geo_visitors[country_code].add(visitor_id)
+            latest_country_by_visitor[visitor_id] = country_code
 
         ua_string = event.get("userAgent")
         if ua_string:
@@ -197,6 +219,8 @@ def build_summary(tenant_id: str, events: list[dict[str, Any]], range_start: dat
         for ts, point in sorted(bucket_metrics.items())
     ]
 
+    geo_counter: Counter[str] = Counter(latest_country_by_visitor.values())
+
     return MetricSummary(
         tenant_id=tenant_id,
         range_start=range_start,
@@ -209,10 +233,7 @@ def build_summary(tenant_id: str, events: list[dict[str, Any]], range_start: dat
         bounce_rate=round(bounce_rate, 4),
         top_pages=_rank(page_counter),
         top_elements=_rank(element_counter),
-        geo_breakdown=_rank(
-            Counter({key: len(visitors) for key, visitors in geo_visitors.items()}),
-            limit=10,
-        ),
+        geo_breakdown=_rank(geo_counter, limit=10),
         timeseries=timeseries,
         browser_breakdown=_rank(browser_counter),
         os_breakdown=_rank(os_counter),
