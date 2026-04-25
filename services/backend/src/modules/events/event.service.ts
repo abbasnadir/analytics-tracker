@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { env } from "../../config/env.js";
+import { resolveCountryCode } from "../../lib/geo.js";
 import { AnalyzerCheckpointModel } from "./analyzer-checkpoint.model.js";
 import { EventModel } from "./event.model.js";
 import { MetricSummaryModel } from "./metric-summary.model.js";
@@ -38,6 +39,10 @@ type TimeseriesPoint = {
   pageViews: number;
   clicks: number;
   sessions: number;
+};
+
+type IngestContext = {
+  countryCode?: string;
 };
 
 function rank(items: Record<string, number>, limit = 5) {
@@ -167,25 +172,6 @@ function buildTimeseries(
   );
 }
 
-function normalizeCountryCode(countryCode?: string, locale?: string) {
-  if (countryCode && /^[A-Za-z]{2}$/.test(countryCode)) {
-    return countryCode.toUpperCase();
-  }
-
-  if (!locale) {
-    return null;
-  }
-
-  const match = locale.match(/[-_]([A-Za-z]{2})\b/);
-  const region = match?.[1];
-
-  if (!region) {
-    return null;
-  }
-
-  return region.toUpperCase();
-}
-
 function resolveVisitorId(event: { visitorId?: string; sessionId: string }) {
   return event.visitorId || event.sessionId;
 }
@@ -206,12 +192,20 @@ function inferInterval(points: TimeseriesPoint[]): "hour" | "day" {
   return hours >= 24 ? "day" : "hour";
 }
 
-export async function ingestEvent(tenantId: string, payload: EventPayload) {
+export async function ingestEvent(
+  tenantId: string,
+  payload: EventPayload,
+  context: IngestContext = {},
+) {
   const now = new Date().toISOString();
 
   return EventModel.create({
     ...payload,
     eventId: payload.eventId ?? randomUUID(),
+    countryCode: resolveCountryCode(
+      context.countryCode ?? payload.countryCode,
+      payload.locale,
+    ),
     path:
       payload.path ??
       (() => {
@@ -230,12 +224,17 @@ export async function ingestEvent(tenantId: string, payload: EventPayload) {
 export async function ingestBatch(
   tenantId: string,
   payload: EventBatchPayload,
+  context: IngestContext = {},
 ) {
   const now = new Date().toISOString();
 
   const docs = payload.events.map((event) => ({
     ...event,
     eventId: event.eventId ?? randomUUID(),
+    countryCode: resolveCountryCode(
+      context.countryCode ?? event.countryCode,
+      event.locale,
+    ),
     path:
       event.path ??
       (() => {
@@ -587,7 +586,7 @@ export async function getGeoMetrics(
   const uniqueVisitors = new Set<string>();
 
   for (const event of events) {
-    const countryCode = normalizeCountryCode(event.countryCode, event.locale);
+    const countryCode = resolveCountryCode(event.countryCode, event.locale);
     const visitorId = resolveVisitorId(event);
 
     uniqueVisitors.add(visitorId);

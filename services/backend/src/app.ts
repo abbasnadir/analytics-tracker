@@ -28,6 +28,12 @@ export function createApp() {
   const app = express();
   const allowedOrigins = parseAllowedOrigins(env.CORS_ORIGIN);
 
+  // By default, Express does not trust headers like X-Forwarded-For.
+  // When running behind a reverse proxy (like NGINX, or a cloud load balancer),
+  // we need to enable this setting to correctly identify the client's IP address
+  // for features like Geo-IP country detection.
+  app.set("trust proxy", true);
+
   app.use(
     cors({
       origin(origin, callback) {
